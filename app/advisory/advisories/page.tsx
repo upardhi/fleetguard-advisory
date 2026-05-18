@@ -1,11 +1,9 @@
 "use client";
-import { useState } from "use client";
 import { useState, useMemo } from "react";
 import TopBar from "@/app/_components/TopBar";
 import AdvisoryCard from "@/app/_components/AdvisoryCard";
 import { MOCK_ADVISORIES } from "@/app/_lib/mockData";
-import type { Advisory } from "@/app/_lib/types";
-import { BrainCircuit, Filter, Zap, Clock, CheckCircle } from "lucide-react";
+import { BrainCircuit, Zap, Clock, CheckCircle } from "lucide-react";
 
 const TYPE_LABELS: Record<string, string> = {
   all:            "All Advisories",
@@ -105,22 +103,24 @@ export default function AdvisoriesPage() {
             <span className="text-xs text-slate-400 ml-auto">{filtered.length} advisories</span>
           </div>
 
-          {/* Urgent banner if any urgent */}
+          {/* Urgent banner */}
           {urgentCount > 0 && (
             <div className="rounded-xl border border-red-200 bg-red-50 p-4 flex items-start gap-3">
               <Zap size={18} className="text-red-600 shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-bold text-red-800">{urgentCount} advisory action{urgentCount > 1 ? "s" : ""} require immediate attention</p>
-                <p className="text-xs text-red-600 mt-0.5">Review urgent advisories below and take action before dispatch. ETA impact and cargo risk increase with every hour of delay.</p>
+                <p className="text-sm font-bold text-red-800">
+                  {urgentCount} advisory action{urgentCount > 1 ? "s" : ""} require immediate attention
+                </p>
+                <p className="text-xs text-red-600 mt-0.5">
+                  Review urgent advisories below and take action before dispatch.
+                </p>
               </div>
             </div>
           )}
 
           {/* Advisory grid */}
           <div className="grid lg:grid-cols-2 gap-4">
-            {filtered.map((a) => (
-              <AdvisoryCard key={a.id} a={a} />
-            ))}
+            {filtered.map((a) => <AdvisoryCard key={a.id} a={a} />)}
           </div>
 
           {filtered.length === 0 && (
