@@ -2,36 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/app/_server/auth/getUser";
 import { db } from "@/app/_server/db/client";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   try {
     const claims = await requireUser(req);
 
-    const [user] = await db`
+    const users = await db`
       SELECT
         u.id,
         u.email,
         u.full_name,
         u.role,
-        u.org_id,
+        u.is_active,
         u.warehouse_id,
-        o.name AS org_name
+        u.created_at,
+        w.name  AS warehouse_name,
+        w.code  AS warehouse_code,
+        w.city  AS warehouse_city
       FROM users u
-      LEFT JOIN organisations o ON o.id = u.org_id
-      WHERE u.id = ${claims.sub}
-      LIMIT 1
+      LEFT JOIN warehouses w ON w.id = u.warehouse_id
+      WHERE u.org_id = ${claims.org}
+      ORDER BY u.role, u.full_name
     `;
 
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-    return NextResponse.json({
-      id:          user.id,
-      email:       user.email,
-      name:        user.full_name,
-      role:        user.role,
-      orgId:       user.org_id,
-      orgName:     user.org_name,
-      warehouseId: user.warehouse_id ?? null,
-    });
+    return NextResponse.json({ users });
   } catch (err: unknown) {
     const code = (err as { code?: number }).code;
     if (code === 401) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
