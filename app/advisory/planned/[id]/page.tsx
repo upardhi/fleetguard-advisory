@@ -355,41 +355,177 @@ function SegmentDrawer({
   );
 }
 
-// ── Mini map ──────────────────────────────────────────────────────
+// ── Corridor Leaflet Map ───────────────────────────────────────────
 
-function MiniMap({
+const RISK_COLOR: Record<string, string> = {
+  critical: "#ef4444",
+  high: "#f97316",
+  medium: "#eab308",
+  low: "#22c55e",
+  safe: "#4ade80",
+};
+
+function segColor(risk: RiskLevel | null, isActive: boolean): string {
+  if (!isActive) return "#374151";
+  if (!risk || risk === "safe") return "#4ade80";
+  return RISK_COLOR[risk] ?? "#4ade80";
+}
+
+function renderCorridorLayers(
+  L: typeof import("leaflet"),
+  map: import("leaflet").Map,
+  layersRef: React.MutableRefObject<import("leaflet").Layer[]>,
+  segments: WatchedSegment[],
+  variants: number[],
+  activeVariant: number,
+  onSegmentClick?: (seg: WatchedSegment) => void,
+) {
+  layersRef.current.forEach((l) => l.remove());
+  layersRef.current = [];
+
+  variants.forEach((v) => {
+    const vSegs = segments
+      .filter((s) => s.route_variant === v && s.lat && s.lng)
+      .sort((a, b) => a.seq - b.seq);
+    if (vSegs.length < 2) return;
+    const isActive = v === activeVariant;
+
+    vSegs.slice(0, -1).forEach((seg, i) => {
+      const next = vSegs[i + 1];
+      const color = segColor(seg.has_disruption ? seg.disruption_risk_level : null, isActive);
+      const line = L.polyline(
+        [
+          [parseFloat(seg.lat!), parseFloat(seg.lng!)],
+          [parseFloat(next.lat!), parseFloat(next.lng!)],
+        ],
+        {
+          color,
+          weight: isActive ? 4 : 2,
+          opacity: isActive ? 0.9 : 0.3,
+        },
+      );
+      if (isActive && onSegmentClick) {
+        line.on("click", () => onSegmentClick(seg));
+      }
+      line.addTo(map);
+      layersRef.current.push(line);
+    });
+  });
+
+  // Disruption hotspots on active variant
+  segments
+    .filter((s) => s.route_variant === activeVariant && s.has_disruption && s.lat && s.lng)
+    .forEach((seg) => {
+      const color = RISK_COLOR[seg.disruption_risk_level ?? "high"] ?? "#f97316";
+      const glow = L.circleMarker([parseFloat(seg.lat!), parseFloat(seg.lng!)], {
+        radius: 14,
+        color,
+        fillColor: color,
+        fillOpacity: 0.15,
+        weight: 0,
+      }).addTo(map);
+      const dot = L.circleMarker([parseFloat(seg.lat!), parseFloat(seg.lng!)], {
+        radius: 6,
+        color,
+        fillColor: color,
+        fillOpacity: 0.9,
+        weight: 2,
+      });
+      dot.bindPopup(
+        `<div style="font-size:12px;line-height:1.5;min-width:160px">
+          <strong>${seg.segment_name ?? "Segment"}</strong><br/>
+          Risk: <b style="color:${color}">${seg.disruption_risk_level ?? "high"}</b><br/>
+          ${seg.disruption_event_title ? `<span style="color:#475569">${seg.disruption_event_title}</span>` : ""}
+        </div>`,
+        { maxWidth: 220 },
+      );
+      if (onSegmentClick) dot.on("click", () => onSegmentClick(seg));
+      dot.addTo(map);
+      layersRef.current.push(glow, dot);
+    });
+
+  // Origin / destination on active variant
+  const primary = segments
+    .filter((s) => s.route_variant === activeVariant && s.lat && s.lng)
+    .sort((a, b) => a.seq - b.seq);
+  if (primary.length >= 2) {
+    const first = primary[0];
+    const last = primary[primary.length - 1];
+    const origin = L.circleMarker([parseFloat(first.lat!), parseFloat(first.lng!)], {
+      radius: 7, color: "#3b82f6", fillColor: "#3b82f6", fillOpacity: 1, weight: 2,
+    }).bindTooltip("Origin", { permanent: false });
+    const dest = L.circleMarker([parseFloat(last.lat!), parseFloat(last.lng!)], {
+      radius: 7, color: "#8b5cf6", fillColor: "#8b5cf6", fillOpacity: 1, weight: 2,
+    }).bindTooltip("Destination", { permanent: false });
+    origin.addTo(map);
+    dest.addTo(map);
+    layersRef.current.push(origin, dest);
+  }
+}
+
+function CorridorLeafletMap({
   segments,
   variants,
   activeVariant,
+  onSegmentClick,
 }: {
   segments: WatchedSegment[];
   variants: number[];
   activeVariant: number;
+  onSegmentClick?: (seg: WatchedSegment) => void;
 }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
+  const layersRef = useRef<import("leaflet").Layer[]>([]);
+
   const withCoords = segments.filter((s) => s.lat && s.lng);
-  if (withCoords.length < 2) return null;
 
-  const lats = withCoords.map((s) => parseFloat(s.lat!));
-  const lngs = withCoords.map((s) => parseFloat(s.lng!));
-  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-  const latSpan = maxLat - minLat || 0.01;
-  const lngSpan = maxLng - minLng || 0.01;
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current || withCoords.length < 2) return;
 
-  const W = 440, H = 200, PAD = 24;
+    import("leaflet").then((L) => {
+      // Fix default icon path issue with webpack
+      delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
 
-  function toXY(lat: number, lng: number) {
-    return {
-      x: PAD + ((lng - minLng) / lngSpan) * (W - 2 * PAD),
-      y: PAD + ((maxLat - lat) / latSpan) * (H - 2 * PAD),
+      const lats = withCoords.map((s) => parseFloat(s.lat!));
+      const lngs = withCoords.map((s) => parseFloat(s.lng!));
+      const bounds = L.latLngBounds(
+        [Math.min(...lats) - 0.5, Math.min(...lngs) - 0.5],
+        [Math.max(...lats) + 0.5, Math.max(...lngs) + 0.5],
+      );
+
+      const map = L.map(mapRef.current!, { zoomControl: true, scrollWheelZoom: true });
+      map.fitBounds(bounds, { padding: [24, 24] });
+      mapInstanceRef.current = map;
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap contributors",
+        maxZoom: 18,
+      }).addTo(map);
+
+      renderCorridorLayers(L, map, layersRef, segments, variants, activeVariant, onSegmentClick);
+    });
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
     };
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  function lineColor(r: RiskLevel | null, isActive: boolean): string {
-    if (!isActive) return "#374151";
-    if (!r || r === "safe") return "#4ade80";
-    return { critical: "#ef4444", high: "#f97316", medium: "#facc15", low: "#60a5fa" }[r] ?? "#4ade80";
-  }
+  // Re-render layers when active variant changes
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    import("leaflet").then((L) => {
+      renderCorridorLayers(
+        L, mapInstanceRef.current!, layersRef, segments, variants, activeVariant, onSegmentClick,
+      );
+    });
+  }, [activeVariant, segments, variants, onSegmentClick]);
+
+  if (withCoords.length < 2) return null;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -398,87 +534,16 @@ function MiniMap({
           <MapPin size={14} className="text-slate-500" />
           <span className="text-xs font-semibold text-slate-700">Corridor Route Map</span>
         </div>
-        <span className="text-[10px] text-slate-400">{withCoords.length} plotted segments</span>
+        <div className="flex items-center gap-3 text-[10px] text-slate-400">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Critical</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500 inline-block" />High</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />Medium</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-400 inline-block" />Clear</span>
+          <span className="flex items-center gap-1 ml-2"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />Origin</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-violet-500 inline-block" />Dest</span>
+        </div>
       </div>
-      <div className="bg-slate-900 p-2">
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 200 }}>
-          {/* Background grid lines */}
-          {[0.25, 0.5, 0.75].map((t) => (
-            <g key={t}>
-              <line x1={W * t} y1={0} x2={W * t} y2={H} stroke="#1e293b" strokeWidth={0.5} />
-              <line x1={0} y1={H * t} x2={W} y2={H * t} stroke="#1e293b" strokeWidth={0.5} />
-            </g>
-          ))}
-
-          {/* Route lines per variant */}
-          {variants.map((v) => {
-            const vSegs = segments
-              .filter((s) => s.route_variant === v && s.lat && s.lng)
-              .sort((a, b) => a.seq - b.seq);
-            if (vSegs.length < 2) return null;
-            const isActive = v === activeVariant;
-            return vSegs.slice(0, -1).map((seg, i) => {
-              const next = vSegs[i + 1];
-              const p1 = toXY(parseFloat(seg.lat!), parseFloat(seg.lng!));
-              const p2 = toXY(parseFloat(next.lat!), parseFloat(next.lng!));
-              const color = lineColor(seg.has_disruption ? seg.disruption_risk_level : null, isActive);
-              return (
-                <line
-                  key={`${v}-${i}`}
-                  x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y}
-                  stroke={color}
-                  strokeWidth={isActive ? 2.5 : 1.2}
-                  strokeOpacity={isActive ? 1 : 0.35}
-                  strokeLinecap="round"
-                />
-              );
-            });
-          })}
-
-          {/* Disruption hotspots on active variant */}
-          {segments
-            .filter((s) => s.route_variant === activeVariant && s.has_disruption && s.lat && s.lng)
-            .map((seg) => {
-              const { x, y } = toXY(parseFloat(seg.lat!), parseFloat(seg.lng!));
-              const color = lineColor(seg.disruption_risk_level, true);
-              return (
-                <g key={`hot-${seg.id}`}>
-                  <circle cx={x} cy={y} r={9} fill={color} opacity={0.15} />
-                  <circle cx={x} cy={y} r={4} fill={color} />
-                  <circle cx={x} cy={y} r={4} fill="none" stroke={color} strokeWidth={1} opacity={0.6} />
-                </g>
-              );
-            })}
-
-          {/* Origin / destination markers on primary route */}
-          {(() => {
-            const primary = segments
-              .filter((s) => s.route_variant === 0 && s.lat && s.lng)
-              .sort((a, b) => a.seq - b.seq);
-            if (primary.length < 2) return null;
-            const first = primary[0];
-            const last = primary[primary.length - 1];
-            const o = toXY(parseFloat(first.lat!), parseFloat(first.lng!));
-            const d = toXY(parseFloat(last.lat!), parseFloat(last.lng!));
-            return (
-              <>
-                <circle cx={o.x} cy={o.y} r={6} fill="#3b82f6" />
-                <circle cx={o.x} cy={o.y} r={6} fill="none" stroke="#93c5fd" strokeWidth={1.5} />
-                <circle cx={d.x} cy={d.y} r={6} fill="#8b5cf6" />
-                <circle cx={d.x} cy={d.y} r={6} fill="none" stroke="#c4b5fd" strokeWidth={1.5} />
-              </>
-            );
-          })()}
-        </svg>
-      </div>
-      <div className="px-5 py-2.5 flex items-center gap-4 text-[10px] text-slate-400 flex-wrap border-t border-slate-100">
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-500" />Critical</span>
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-orange-500" />High</span>
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-yellow-400" />Medium</span>
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-green-400" />Clear</span>
-        <span className="flex items-center gap-1 ml-auto"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" />Origin</span>
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-violet-500" />Destination</span>
-      </div>
+      <div ref={mapRef} style={{ height: 380, width: "100%" }} />
     </div>
   );
 }
@@ -939,7 +1004,7 @@ export default function PlannedRouteDetailPage({
                 </div>
 
                 {/* Mini route map — plotted from segment coordinates */}
-                <MiniMap segments={segments} variants={variants} activeVariant={activeVariant} />
+                <CorridorLeafletMap segments={segments} variants={variants} activeVariant={activeVariant} onSegmentClick={(seg) => setSelectedSeg(seg)} />
 
                 {/* Risk heatmap strip for active variant */}
                 {variantSegments.length > 0 && (
