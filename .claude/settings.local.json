@@ -115,7 +115,10 @@
       "Bash(Select-Object FullName)",
       "Bash(Sort-Object FullName)",
       "Bash(Get-Content .env.local)",
-      "Bash(Select-String -Pattern \"SUPABASE_DB_URL|DATABASE_URL\")"
+      "Bash(Select-String -Pattern \"SUPABASE_DB_URL|DATABASE_URL\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/cron/run-intelligence -H 'Content-Type: application/json')",
+      "Bash(curl -s -X POST http://localhost:3000/api/cron/run-intelligence -H 'x-vercel-cron-auth: 8a3f2b9c4e1d7f6b5c0e8a9d2f1b3e7c4a6b8d9e0f1c2a3b4d5e6f7a8b9c0d1e' -H 'Content-Type: application/json')",
+      "Bash(Select-String -Pattern \"leaflet|mapbox|google|map\")"
     ]
   }
 }

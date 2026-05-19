@@ -56,7 +56,14 @@ export async function GET(req: NextRequest) {
   const rows = (await db`
     SELECT
       ce.id, ce.org_id, ce.watched_route_id, ce.segment_id,
-      ce.event_type, ce.event_start_at, ce.event_end_at,
+      -- Dynamically reclassify event_type based on current date
+      CASE
+        WHEN ce.event_start_at IS NULL                              THEN 'scheduled'
+        WHEN ce.event_start_at > now()                             THEN 'scheduled'
+        WHEN ce.event_start_at > now() - interval '14 days'       THEN 'ongoing'
+        ELSE 'historical'
+      END                                                          AS event_type,
+      ce.event_start_at, ce.event_end_at,
       ce.detected_at, ce.title, ce.summary, ce.category,
       ce.risk_level, ce.eta_impact_hours, ce.duration_days,
       ce.sources, ce.rescan_count, ce.is_active,
@@ -67,14 +74,19 @@ export async function GET(req: NextRequest) {
     JOIN   adv_watched_routes  r ON r.id = ce.watched_route_id
     WHERE  ce.org_id = ${actor.org}
       AND  r.is_active = true
-      AND  (${eventType} = 'all' OR ce.event_type = ${eventType})
+      AND  (${eventType} = 'all' OR
+            CASE
+              WHEN ce.event_start_at IS NULL                        THEN 'scheduled'
+              WHEN ce.event_start_at > now()                       THEN 'scheduled'
+              WHEN ce.event_start_at > now() - interval '14 days' THEN 'ongoing'
+              ELSE 'historical'
+            END = ${eventType})
       AND  (${routeId ?? null}::text IS NULL OR ce.watched_route_id = ${routeId ?? null})
     ORDER  BY
-      CASE ce.event_type
-        WHEN 'ongoing'    THEN 1
-        WHEN 'scheduled'  THEN 2
-        WHEN 'historical' THEN 3
-        ELSE 4
+      CASE
+        WHEN ce.event_start_at IS NULL OR ce.event_start_at > now()             THEN 1
+        WHEN ce.event_start_at > now() - interval '14 days'                    THEN 2
+        ELSE 3
       END,
       ce.event_start_at ASC NULLS LAST,
       ce.detected_at DESC
