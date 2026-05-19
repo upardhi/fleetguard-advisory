@@ -1,5 +1,6 @@
 {
   "crons": [
+    { "path": "/api/cron/auto-intel",           "schedule": "30 5 * * *"   },
     { "path": "/api/cron/run-intelligence",    "schedule": "* * * * *"    },
     { "path": "/api/cron/escalate-incidents",  "schedule": "*/5 * * * *"  },
     { "path": "/api/cron/sla-warnings",        "schedule": "*/15 * * * *" },
