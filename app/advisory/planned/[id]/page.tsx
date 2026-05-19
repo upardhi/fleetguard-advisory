@@ -433,9 +433,9 @@ function renderCorridorLayers(
       });
       dot.bindPopup(
         `<div style="font-size:12px;line-height:1.5;min-width:160px">
-          <strong>${seg.segment_name ?? "Segment"}</strong><br/>
+          <strong>${seg.name}</strong><br/>
           Risk: <b style="color:${color}">${seg.disruption_risk_level ?? "high"}</b><br/>
-          ${seg.disruption_event_title ? `<span style="color:#475569">${seg.disruption_event_title}</span>` : ""}
+          ${seg.disruption_title ? `<span style="color:#475569">${seg.disruption_title}</span>` : ""}
         </div>`,
         { maxWidth: 220 },
       );
