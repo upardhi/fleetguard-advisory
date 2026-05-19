@@ -5,15 +5,19 @@ import { validateSession } from "./sessions";
 export async function getUser(req?: Request): Promise<JwtClaims | null> {
   try {
     let token: string | undefined;
+
     if (req) {
       const auth = req.headers.get("authorization");
       if (auth?.startsWith("Bearer ")) token = auth.slice(7);
     }
+
     if (!token) {
       const jar = await cookies();
       token = jar.get("fg_access")?.value;
     }
+
     if (!token) return null;
+
     const claims = await verifyToken(token);
     const valid = await validateSession(claims.sid);
     return valid ? claims : null;

@@ -1,49 +1,86 @@
-import type { ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { cx } from "../_lib/utils";
 
-export default function StatCard({
-  label,
-  value,
-  sub,
-  icon,
-  accent,
-}: {
+type Props = {
   label: string;
   value: string | number;
-  sub?: string;
-  icon: ReactNode;
-  accent?: "red" | "orange" | "green" | "blue" | "amber";
-}) {
-  const accentRing = {
-    red:    "border-red-200 bg-white",
-    orange: "border-orange-200 bg-white",
-    green:  "border-emerald-200 bg-white",
-    blue:   "border-brand-200 bg-white",
-    amber:  "border-amber-200 bg-white",
-  }[accent ?? "blue"];
+  icon?: LucideIcon;
+  hint?: string;
+  trend?: { value: string; positive?: boolean };
+  tone?: "default" | "brand" | "success" | "warning" | "danger" | "info" | "muted";
+  className?: string;
+};
 
-  const iconBg = {
-    red:    "bg-red-50 text-red-500",
-    orange: "bg-orange-50 text-orange-500",
-    green:  "bg-emerald-50 text-emerald-600",
-    blue:   "bg-brand-50 text-brand-600",
-    amber:  "bg-amber-50 text-amber-600",
-  }[accent ?? "blue"];
+const toneRing: Record<NonNullable<Props["tone"]>, string> = {
+  default: "",
+  brand: "ring-1 ring-brand-100",
+  success: "ring-1 ring-success-100",
+  warning: "ring-1 ring-accent-100",
+  danger: "ring-1 ring-danger-100",
+  info: "ring-1 ring-sky-100",
+  muted: "",
+};
 
-  const valueColor = {
-    red:    "text-red-600",
-    orange: "text-orange-600",
-    green:  "text-emerald-600",
-    blue:   "text-brand-700",
-    amber:  "text-amber-600",
-  }[accent ?? "blue"];
+const toneIcon: Record<NonNullable<Props["tone"]>, string> = {
+  default: "bg-slate-100 text-slate-700",
+  brand: "bg-brand-50 text-brand-700",
+  success: "bg-success-50 text-success-700",
+  warning: "bg-accent-50 text-accent-700",
+  danger: "bg-danger-50 text-danger-700",
+  info: "bg-sky-50 text-sky-700",
+  muted: "bg-slate-100 text-slate-500",
+};
 
+export function StatCard({
+  label,
+  value,
+  icon: Icon,
+  hint,
+  trend,
+  tone = "default",
+  className,
+}: Props) {
   return (
-    <div className={`rounded-xl border p-4 flex items-start gap-3 shadow-sm ${accentRing}`}>
-      <div className={`rounded-lg p-2 shrink-0 ${iconBg}`}>{icon}</div>
-      <div className="min-w-0">
-        <p className="text-xs text-slate-500 font-medium truncate">{label}</p>
-        <p className={`text-2xl font-bold num leading-tight ${valueColor}`}>{value}</p>
-        {sub && <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>}
+    <div
+      className={cx(
+        "relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-xs",
+        toneRing[tone],
+        className
+      )}
+    >
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.09em] text-slate-500">
+            {label}
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <div className="num text-3xl font-semibold tracking-tight text-slate-900">{value}</div>
+            {trend && (
+              <span
+                className={cx(
+                  "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold",
+                  trend.positive ? "bg-success-50 text-success-700" : "bg-danger-50 text-danger-700"
+                )}
+              >
+                {trend.positive ? (
+                  <ArrowUpRight className="h-3 w-3" />
+                ) : (
+                  <ArrowDownRight className="h-3 w-3" />
+                )}
+                {trend.value}
+              </span>
+            )}
+          </div>
+          {hint && <div className="mt-1 text-[12px] text-slate-500">{hint}</div>}
+        </div>
+        {Icon && (
+          <div
+            className={cx("flex h-10 w-10 items-center justify-center rounded-lg", toneIcon[tone])}
+          >
+            <Icon className="h-5 w-5" strokeWidth={2.2} />
+          </div>
+        )}
       </div>
     </div>
   );

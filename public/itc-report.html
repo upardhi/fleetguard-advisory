@@ -1,0 +1,3956 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Fraudcheck.ai POC Insights · Warehouse Security Intelligence</title>
+    <meta
+      name="description"
+      content="Fraudcheck.ai POC results for a leading FMCG enterprise — validated insights, operational intelligence and board-grade ROI."
+    />
+    <link rel="icon" href="/FG.png" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Inter", "system-ui", "sans-serif"],
+              mono: ["JetBrains Mono", "monospace"],
+            },
+            colors: {
+              ink: {
+                950: "#05070d",
+                900: "#0a0d16",
+                800: "#10141f",
+                700: "#161b2a",
+                600: "#1d2436",
+                500: "#2a3248",
+              },
+              brand: {
+                50: "#e6f3ff",
+                100: "#cce5ff",
+                300: "#6db3ff",
+                400: "#3d94ff",
+                500: "#0f6fff",
+                600: "#0057d4",
+                700: "#0042a0",
+              },
+            },
+            boxShadow: {
+              "glow-green": "0 0 40px -10px rgba(16,185,129,.55)",
+              "glow-red": "0 0 40px -10px rgba(239,68,68,.55)",
+              "glow-brand": "0 0 40px -10px rgba(61,148,255,.55)",
+              "glow-amber": "0 0 40px -10px rgba(245,158,11,.55)",
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        font-family: "Inter", sans-serif;
+        background:
+          radial-gradient(
+            1200px 600px at 80% -10%,
+            rgba(61, 148, 255, 0.18),
+            transparent 60%
+          ),
+          radial-gradient(
+            900px 500px at -10% 20%,
+            rgba(16, 185, 129, 0.1),
+            transparent 60%
+          ),
+          radial-gradient(
+            900px 500px at 50% 110%,
+            rgba(139, 92, 246, 0.12),
+            transparent 60%
+          ),
+          #05070d;
+        background-attachment: fixed;
+        color: #e6e8ef;
+        -webkit-font-smoothing: antialiased;
+        letter-spacing: -0.01em;
+      }
+      .glass {
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.04),
+          rgba(255, 255, 255, 0.015)
+        );
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+      }
+      .glass-strong {
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.06),
+          rgba(255, 255, 255, 0.02)
+        );
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+      }
+      .grid-bg {
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+          linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.035) 1px,
+            transparent 1px
+          );
+        background-size: 40px 40px;
+        mask-image: radial-gradient(
+          ellipse at center,
+          black 40%,
+          transparent 75%
+        );
+        -webkit-mask-image: radial-gradient(
+          ellipse at center,
+          black 40%,
+          transparent 75%
+        );
+      }
+      .num {
+        font-feature-settings:
+          "tnum" 1,
+          "lnum" 1;
+      }
+      .pulse-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 9999px;
+        background: #10b981;
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+        animation: pulse 2s infinite;
+      }
+      .pulse-dot.red {
+        background: #ef4444;
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+        animation-name: pulseRed;
+      }
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+        }
+        70% {
+          box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+        }
+      }
+      @keyframes pulseRed {
+        0% {
+          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+        }
+        70% {
+          box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+        }
+      }
+      .fade-in {
+        opacity: 0;
+        transform: translateY(8px);
+        transition:
+          opacity 0.5s ease,
+          transform 0.5s ease;
+      }
+      .fade-in.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .tab-btn[data-active="true"] {
+        background: linear-gradient(
+          180deg,
+          rgba(61, 148, 255, 0.18),
+          rgba(61, 148, 255, 0.06)
+        );
+        color: #eaf2ff;
+        border-color: rgba(61, 148, 255, 0.45);
+        box-shadow: 0 0 24px -10px rgba(61, 148, 255, 0.6);
+      }
+      .section {
+        display: none;
+      }
+      .section.active {
+        display: block;
+        animation: sectionIn 0.45s ease both;
+      }
+      @keyframes sectionIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .ring-gradient {
+        background: conic-gradient(
+          from 180deg,
+          #10b981 0%,
+          #10b981 82%,
+          rgba(255, 255, 255, 0.08) 82%,
+          rgba(255, 255, 255, 0.08) 100%
+        );
+      }
+      .alert-glow {
+        box-shadow:
+          inset 0 0 0 1px rgba(239, 68, 68, 0.35),
+          0 0 30px -8px rgba(239, 68, 68, 0.55);
+      }
+      .card-hover {
+        transition:
+          transform 0.25s ease,
+          box-shadow 0.25s ease,
+          border-color 0.25s ease;
+      }
+      .card-hover:hover {
+        transform: translateY(-3px);
+        border-color: rgba(61, 148, 255, 0.35);
+      }
+      .divider-v {
+        background: linear-gradient(
+          180deg,
+          transparent,
+          rgba(255, 255, 255, 0.12),
+          transparent
+        );
+      }
+      .scroll-x::-webkit-scrollbar {
+        height: 6px;
+      }
+      .scroll-x::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 9999px;
+      }
+      .progress-track {
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 9999px;
+        overflow: hidden;
+      }
+      .progress-bar {
+        height: 100%;
+        border-radius: 9999px;
+      }
+      .ticker {
+        animation: ticker 28s linear infinite;
+      }
+      @keyframes ticker {
+        from {
+          transform: translateX(0);
+        }
+        to {
+          transform: translateX(-50%);
+        }
+      }
+      .badge-dot::before {
+        content: "";
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 9999px;
+        background: currentColor;
+        margin-right: 8px;
+        box-shadow: 0 0 8px currentColor;
+      }
+      .timeline-rail {
+        background: linear-gradient(
+          90deg,
+          rgba(16, 185, 129, 0.35),
+          rgba(16, 185, 129, 0.05)
+        );
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        padding: 4px 10px;
+        border-radius: 9999px;
+        text-transform: uppercase;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.03);
+        color: #cbd5e1;
+      }
+      .chip.green {
+        color: #6ee7b7;
+        border-color: rgba(16, 185, 129, 0.4);
+        background: rgba(16, 185, 129, 0.08);
+      }
+      .chip.red {
+        color: #fca5a5;
+        border-color: rgba(239, 68, 68, 0.4);
+        background: rgba(239, 68, 68, 0.08);
+      }
+      .chip.amber {
+        color: #fcd34d;
+        border-color: rgba(245, 158, 11, 0.4);
+        background: rgba(245, 158, 11, 0.08);
+      }
+      .chip.brand {
+        color: #93c5fd;
+        border-color: rgba(61, 148, 255, 0.45);
+        background: rgba(61, 148, 255, 0.08);
+      }
+      .kbd {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.04);
+        color: #cbd5e1;
+      }
+      .tooltip {
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(10, 13, 22, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 8px 10px;
+        border-radius: 8px;
+        font-size: 11px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+        z-index: 20;
+      }
+      .has-tip:hover .tooltip {
+        opacity: 1;
+      }
+      .marquee-mask {
+        -webkit-mask-image: linear-gradient(
+          90deg,
+          transparent,
+          black 8%,
+          black 92%,
+          transparent
+        );
+        mask-image: linear-gradient(
+          90deg,
+          transparent,
+          black 8%,
+          black 92%,
+          transparent
+        );
+      }
+    </style>
+  </head>
+  <body class="min-h-screen">
+    <!-- ─────────────────────────────  TOP BAR  ───────────────────────────── -->
+    <header
+      class="sticky top-0 z-40 border-b border-white/5 backdrop-blur-xl bg-ink-950/70"
+    >
+      <div class="max-w-[1400px] mx-auto px-6 py-3 flex items-center gap-4">
+        <div class="flex items-center gap-3">
+          <div
+            class="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-400 to-brand-700 flex items-center justify-center shadow-glow-brand"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              class="w-5 h-5 text-white"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+            >
+              <path
+                d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M9 12l2 2 4-4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </div>
+          <div class="leading-tight">
+            <div class="text-sm font-semibold tracking-tight">
+              Fraudcheck<span class="text-brand-400">.ai</span>
+            </div>
+          </div>
+        </div>
+
+        <nav
+          id="tabs"
+          class="hidden md:flex items-center gap-1 ml-6 overflow-x-auto scroll-x"
+        >
+          <button
+            data-tab="hero"
+            data-active="true"
+            class="tab-btn whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-lg border border-white/5 text-slate-300 hover:text-white transition"
+          >
+            Overview
+          </button>
+          <button
+            data-tab="warehouse"
+            data-active="false"
+            class="tab-btn whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-lg border border-white/5 text-slate-300 hover:text-white transition"
+          >
+            Warehouses
+          </button>
+          <button
+            data-tab="trucks"
+            data-active="false"
+            class="tab-btn whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-lg border border-white/5 text-slate-300 hover:text-white transition"
+          >
+            Truck Movement
+          </button>
+          <button
+            data-tab="providers"
+            data-active="false"
+            class="tab-btn whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-lg border border-white/5 text-slate-300 hover:text-white transition"
+          >
+            Provider Intel
+          </button>
+          <button
+            data-tab="drivers"
+            data-active="false"
+            class="tab-btn whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-lg border border-white/5 text-slate-300 hover:text-white transition"
+          >
+            Driver Intel
+          </button>
+          <button
+            data-tab="roi"
+            data-active="false"
+            class="tab-btn whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-lg border border-white/5 text-slate-300 hover:text-white transition text-emerald-300"
+          >
+            ROI & Impact
+          </button>
+          <button
+            data-tab="capabilities"
+            data-active="false"
+            class="tab-btn whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-lg border border-white/5 text-slate-300 hover:text-white transition"
+          >
+            Capabilities
+          </button>
+        </nav>
+      </div>
+
+      <!-- live ticker -->
+      <div class="border-t border-white/5 bg-ink-900/60 overflow-hidden">
+        <div class="marquee-mask">
+          <div
+            class="ticker flex gap-12 py-2 text-[11px] font-medium text-slate-400 whitespace-nowrap"
+          >
+            <span class="flex gap-12">
+              <span
+                ><span class="text-emerald-400">●</span> POC Batch Closed · 10
+                Apr → 23 Apr 2026</span
+              >
+              <span
+                ><span class="text-brand-400">●</span>
+                <span class="num" data-count="767">767</span> Gate Events
+                Verified</span
+              >
+              <span
+                ><span class="text-red-400">●</span>
+                <span class="num" data-count="45">45</span> Drivers Flagged with
+                Court Records</span
+              >
+              <span
+                ><span class="text-brand-400">●</span> Ready to Scale Across 37
+                Warehouses</span
+              >
+            </span>
+            <span class="flex gap-12" aria-hidden="true">
+              <span
+                ><span class="text-emerald-400">●</span> POC Batch Closed · 10
+                Apr → 23 Apr 2026</span
+              >
+              <span
+                ><span class="text-brand-400">●</span>
+                <span class="num" data-count="767">767</span> Gate Events
+                Verified</span
+              >
+
+              >
+              <span
+                ><span class="text-brand-400">●</span> Ready to Scale Across 37
+                Warehouses</span
+              >
+            </span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-[1400px] mx-auto px-6 py-10">
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- 1. HERO / OVERVIEW                                                   -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <section id="hero" class="section active">
+        <div class="relative">
+          <div
+            class="absolute inset-0 grid-bg pointer-events-none rounded-3xl"
+          ></div>
+          <div class="relative p-8 md:p-12 rounded-3xl glass-strong">
+            <div class="flex flex-wrap items-center gap-2 mb-6">
+              <span class="chip brand"
+                ><span class="pulse-dot" style="background: #3d94ff"></span>POC
+                Validated · Live Simulation</span
+              >
+              <span class="chip green badge-dot">Validated Insights</span>
+              <span class="chip">Operational Intelligence Layer</span>
+              <span class="chip amber">Board-Grade Decision Brief</span>
+            </div>
+
+            <h1
+              class="text-4xl md:text-6xl font-bold tracking-tight leading-[1.05]"
+            >
+              POC Insights:
+              <span
+                class="block mt-2 bg-gradient-to-r from-brand-300 via-brand-400 to-emerald-400 bg-clip-text text-transparent"
+              >
+                Unified Warehouse Security, Fleet Intelligence &amp; Driver
+                Verification Platform
+              </span>
+            </h1>
+            <p
+              class="mt-5 text-slate-200 text-xl md:text-2xl font-medium max-w-3xl"
+            >
+              “End-to-End Visibility. Verified Drivers. Secured Operations.”
+            </p>
+            <p class="mt-3 text-sm text-slate-400 max-w-3xl">
+              Results below are drawn from the POC conducted between 10 Apr – 23
+              Apr 2026 at Trichy DC.
+            </p>
+
+            <!-- KPI cards -->
+            <div class="mt-10 grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div
+                class="glass rounded-2xl p-5 card-hover relative overflow-hidden"
+              >
+                <div
+                  class="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-brand-500/10 blur-2xl"
+                ></div>
+                <div class="flex items-center justify-between">
+                  <span
+                    class="text-[11px] uppercase tracking-[.15em] text-slate-400"
+                    >Gate Events</span
+                  >
+                  <svg
+                    class="w-4 h-4 text-brand-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M3 7h11v10H3zM14 10h4l3 3v4h-7zM7 20a2 2 0 100-4 2 2 0 000 4zM18 20a2 2 0 100-4 2 2 0 000 4z"
+                    />
+                  </svg>
+                </div>
+                <div class="mt-3 flex items-end gap-1.5">
+                  <span
+                    class="text-4xl font-bold num"
+                    data-count="767"
+                    data-suffix=""
+                    >0</span
+                  >
+                </div>
+                <div class="mt-1 text-xs text-emerald-400 font-medium">
+                  every gate event verified end-to-end
+                </div>
+              </div>
+
+              <div
+                class="glass rounded-2xl p-5 card-hover relative overflow-hidden"
+              >
+                <div
+                  class="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-emerald-500/10 blur-2xl"
+                ></div>
+                <div class="flex items-center justify-between">
+                  <span
+                    class="text-[11px] uppercase tracking-[.15em] text-slate-400"
+                    >Warehouses Covered</span
+                  >
+                  <svg
+                    class="w-4 h-4 text-emerald-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M3 10l9-7 9 7v10H3zM9 20V12h6v8" />
+                  </svg>
+                </div>
+                <div class="mt-3 flex items-baseline gap-2">
+                  <span class="text-4xl font-bold num" data-count="1">0</span>
+                  <span class="text-sm text-slate-400"
+                    >of
+                    <span class="text-slate-200 font-semibold">37</span>
+                    ready</span
+                  >
+                </div>
+                <div class="mt-1 text-xs text-slate-400">
+                  POC live · 36 waiting to scale
+                </div>
+              </div>
+
+              <div
+                class="glass rounded-2xl p-5 card-hover relative overflow-hidden"
+              >
+                <div
+                  class="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-amber-500/10 blur-2xl"
+                ></div>
+                <div class="flex items-center justify-between">
+                  <span
+                    class="text-[11px] uppercase tracking-[.15em] text-slate-400"
+                    >Risk Categories Surfaced</span
+                  >
+                  <svg
+                    class="w-4 h-4 text-amber-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M12 3l9 16H3zM12 10v4M12 17h.01" />
+                  </svg>
+                </div>
+                <div class="mt-3 space-y-1.5 text-xs">
+                  <div class="flex items-center justify-between">
+                    <span class="text-slate-300">Invalid DL</span>
+                    <span
+                      class="font-mono font-semibold text-red-300 num"
+                      data-count="30"
+                      >0</span
+                    >
+                  </div>
+                  <!-- Invalid DL root-cause breakdown -->
+                  <div
+                    class="ml-2 mt-1 space-y-1 border-l border-red-500/20 pl-2"
+                  >
+                    <div class="flex items-center justify-between text-[10px]">
+                      <span class="text-slate-500">Transport DL Expired</span>
+                      <span class="font-mono text-slate-400"
+                        ><span class="num" data-count="6">0</span>
+                        <span class="text-slate-600">drv</span> /
+                        <span class="num" data-count="6">0</span>
+                        <span class="text-slate-600">DLs</span></span
+                      >
+                    </div>
+                    <div class="flex items-center justify-between text-[10px]">
+                      <span class="text-slate-500"
+                        >No Transport Endorsement</span
+                      >
+                      <span class="font-mono text-slate-400"
+                        ><span class="num" data-count="6">0</span>
+                        <span class="text-slate-600">drv</span> /
+                        <span class="num" data-count="6">0</span>
+                        <span class="text-slate-600">DLs</span></span
+                      >
+                    </div>
+                    <div class="flex items-center justify-between text-[10px]">
+                      <span class="text-slate-500">API Invalid</span>
+                      <span class="font-mono text-slate-400"
+                        ><span class="num" data-count="18">0</span>
+                        <span class="text-slate-600">drv</span></span
+                      >
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-slate-300">Expired DL</span>
+                    <span
+                      class="font-mono font-semibold text-amber-300 num"
+                      data-count="6"
+                      >0</span
+                    >
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-slate-300">Court records</span>
+                    <span
+                      class="font-mono font-semibold text-amber-300 num"
+                      data-count="45"
+                      >0</span
+                    >
+                  </div>
+                </div>
+                <div
+                  class="mt-2 pt-2 border-t border-white/5 flex items-center justify-between text-[11px]"
+                >
+                  <span
+                    class="text-slate-400 font-semibold uppercase tracking-wider text-[10px]"
+                    >Unique drivers flagged</span
+                  >
+                  <span
+                    class="font-mono font-bold text-white num"
+                    data-count="45"
+                    >0</span
+                  >
+                </div>
+                <div class="mt-1 text-[10px] text-slate-500">
+                  of <span class="num" data-count="546">0</span> screened ·
+                  <span class="num" data-count="9.0">0</span>% of driver pool
+                </div>
+              </div>
+
+              <div
+                class="glass rounded-2xl p-5 card-hover relative overflow-hidden alert-glow"
+              >
+                <div
+                  class="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-red-500/10 blur-2xl"
+                ></div>
+                <div class="flex items-center justify-between">
+                  <span
+                    class="text-[11px] uppercase tracking-[.15em] text-slate-400"
+                    >High-Risk Entries Identified</span
+                  >
+                  <svg
+                    class="w-4 h-4 text-red-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 8v4M12 16h.01" />
+                  </svg>
+                </div>
+                <div class="mt-3 flex items-baseline gap-2">
+                  <span
+                    class="text-4xl font-bold num text-red-300"
+                    data-count="75"
+                    >0</span
+                  >
+                </div>
+                <div class="mt-1 text-xs text-red-300/90 font-medium">
+                  Flagged for review under Fraudcheck.ai's risk rules
+                </div>
+              </div>
+            </div>
+
+            <!-- secondary stats -->
+            <div
+              class="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3"
+            >
+              <div class="glass rounded-xl p-4">
+                <div
+                  class="text-[10px] uppercase tracking-wider text-slate-400"
+                >
+                  Valid Unique Licenses
+                </div>
+                <div class="mt-1 text-2xl font-semibold text-emerald-400 num">
+                  <span data-count="506">0</span>
+                  <span class="text-sm text-slate-500"
+                    >/ <span class="num" data-count="536">0</span></span
+                  >
+                </div>
+              </div>
+              <div class="glass rounded-xl p-4 has-tip relative">
+                <div
+                  class="text-[10px] uppercase tracking-wider text-slate-400"
+                >
+                  Invalid DLs
+                </div>
+                <div
+                  class="mt-1 text-2xl font-semibold text-red-400 num"
+                  data-count="18"
+                >
+                  0
+                </div>
+                <div class="mt-1 text-[10px] text-red-300/80 leading-tight">
+                  6 confirmed entry errors · scan eliminates manual-entry risk
+                </div>
+                <div class="tooltip">
+                  Cross-matching invalid DLs against verified drivers found 6
+                  confirmed guard entry errors — extra zeros, missing
+                  letter-prefixes, wrong year digits. Fraudcheck.ai DL scan
+                  auto-populates the exact number from the physical card —
+                  eliminating all manual-entry mistakes at source.
+                </div>
+              </div>
+              <div class="glass rounded-xl p-4">
+                <div
+                  class="text-[10px] uppercase tracking-wider text-slate-400"
+                >
+                  Expired DLs
+                </div>
+                <div
+                  class="mt-1 text-2xl font-semibold text-amber-300 num"
+                  data-count="6"
+                >
+                  0
+                </div>
+                <div class="mt-1 text-[10px] text-amber-300/80 leading-tight">
+                  genuine compliance breach
+                </div>
+              </div>
+              <div class="glass rounded-xl p-4">
+                <div
+                  class="text-[10px] uppercase tracking-wider text-slate-400"
+                >
+                  Court-Record Flags
+                </div>
+                <div
+                  class="mt-1 text-2xl font-semibold text-amber-400 num"
+                  data-count="45"
+                >
+                  0
+                </div>
+              </div>
+              <div class="glass rounded-xl p-4 has-tip relative">
+                <div
+                  class="text-[10px] uppercase tracking-wider text-slate-400"
+                >
+                  In & Out DL Mismatches
+                </div>
+                <div class="mt-1 text-2xl font-semibold text-brand-300 num">
+                  <span data-count="19">0</span>
+                  <span class="text-sm text-slate-500">DLs</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Flagship capability callout -->
+            <div
+              class="mt-6 glass-strong rounded-2xl p-5 border border-emerald-500/25 shadow-glow-green flex flex-col md:flex-row gap-4 md:items-center md:justify-between relative overflow-hidden"
+            >
+              <div
+                class="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-emerald-500/10 blur-3xl"
+              ></div>
+              <div class="relative flex items-start gap-3">
+                <div
+                  class="w-11 h-11 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0"
+                >
+                  <svg
+                    class="w-5 h-5 text-emerald-300"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <rect x="3" y="3" width="7" height="7" />
+                    <rect x="14" y="3" width="7" height="7" />
+                    <rect x="3" y="14" width="7" height="7" />
+                    <path d="M14 14h3v3M17 19v2h4v-4M14 19h2" />
+                  </svg>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="chip green"
+                      ><span class="pulse-dot"></span>Flagship Feature</span
+                    >
+                    <span class="text-xs text-slate-400"
+                      >Reduces gate time ~70%</span
+                    >
+                  </div>
+                  <div class="mt-1 text-sm font-semibold leading-tight">
+                    Scan the DL once — name, number, expiry, registry status
+                    &amp; photo fetched automatically.
+                  </div>
+                  <div class="text-xs text-slate-400 mt-0.5">
+                    Zero manual entry · every scan logged to immutable audit
+                    trail · DL auto-verified against the central registry in one
+                    step.
+                  </div>
+                </div>
+              </div>
+              <div class="relative flex gap-2 shrink-0">
+                <button
+                  onclick="showTab('capabilities')"
+                  class="text-xs font-semibold px-4 py-2 rounded-lg bg-emerald-500 text-ink-950 hover:bg-emerald-400 transition"
+                >
+                  See capability →
+                </button>
+              </div>
+            </div>
+
+            <!-- FOMO line -->
+            <div
+              class="mt-4 glass rounded-2xl p-5 flex flex-col md:flex-row gap-4 md:items-center md:justify-between"
+            >
+              <div class="flex items-start gap-3">
+                <div
+                  class="w-10 h-10 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0"
+                >
+                  <svg
+                    class="w-5 h-5 text-amber-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                  </svg>
+                </div>
+                <div>
+                  <div class="text-sm font-semibold text-amber-200">
+                    Early adopters in Indian FMCG are already moving to
+                    real-time logistics intelligence.
+                  </div>
+                  <div class="text-xs text-slate-400 mt-0.5">
+                    Every month without system-level control is ₹15–22 L of
+                    preventable leakage per warehouse.
+                  </div>
+                </div>
+              </div>
+              <div class="flex gap-2 shrink-0">
+                <button
+                  onclick="showTab('roi')"
+                  class="text-xs font-semibold px-4 py-2 rounded-lg bg-emerald-500 text-ink-950 hover:bg-emerald-400 transition"
+                >
+                  See ROI →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- quick navigation tiles -->
+        <div class="mt-10 grid grid-cols-2 md:grid-cols-4 gap-3">
+          <button
+            onclick="showTab('warehouse')"
+            class="glass card-hover rounded-xl p-4 text-left"
+          >
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              01
+            </div>
+            <div class="mt-1 font-semibold">Warehouse Overview</div>
+            <div class="text-xs text-slate-400">Risk-ranked status grid</div>
+          </button>
+          <button
+            onclick="showTab('trucks')"
+            class="glass card-hover rounded-xl p-4 text-left"
+          >
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              02
+            </div>
+            <div class="mt-1 font-semibold">Truck Movement</div>
+            <div class="text-xs text-slate-400">
+              Entry · Exit · Flow patterns
+            </div>
+          </button>
+          <button
+            onclick="showTab('roi')"
+            class="glass card-hover rounded-xl p-4 text-left border-emerald-500/30 hover:border-emerald-500/50"
+          >
+            <div class="text-[10px] uppercase tracking-wider text-emerald-400">
+              04 · DECISION
+            </div>
+            <div class="mt-1 font-semibold">ROI & Business Impact</div>
+            <div class="text-xs text-emerald-300">The money moment →</div>
+          </button>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- 2. WAREHOUSE OVERVIEW                                                -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <section id="warehouse" class="section">
+        <div class="flex items-end justify-between flex-wrap gap-4 mb-6">
+          <div>
+            <div class="chip brand mb-3">
+              <span class="pulse-dot" style="background: #3d94ff"></span>01 ·
+              Pan-India Coverage Map
+            </div>
+            <h2 class="text-3xl md:text-4xl font-bold tracking-tight">
+              Warehouse Overview
+            </h2>
+            <p class="text-slate-400 text-sm mt-1 max-w-xl">
+              One command view of every FMCG warehouse, colour-coded by live
+              risk — POC live at Trichy DC, validated for pan-India scale-out.
+            </p>
+          </div>
+          <div class="flex gap-2 text-xs">
+            <span class="chip green"
+              ><span class="badge-dot" style="color: #10b981"></span
+              >Cleared</span
+            >
+            <span class="chip amber"
+              ><span class="badge-dot" style="color: #f59e0b"></span
+              >Warnings</span
+            >
+            <span class="chip red"
+              ><span class="badge-dot" style="color: #ef4444"></span
+              >Critical</span
+            >
+          </div>
+        </div>
+
+        <!-- summary strip -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div class="glass rounded-xl p-4">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              Network Size
+            </div>
+            <div class="mt-1 text-2xl font-semibold">
+              <span class="num" data-count="37">0</span
+              ><span class="text-sm text-slate-500"> warehouses</span>
+            </div>
+          </div>
+          <div class="glass rounded-xl p-4">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              POC Active
+            </div>
+            <div class="mt-1 text-2xl font-semibold text-emerald-400">
+              <span class="num" data-count="1">0</span
+              ><span class="text-sm text-slate-500"> · Trichy DC</span>
+            </div>
+          </div>
+          <div class="glass rounded-xl p-4">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              Transport Service Providers
+            </div>
+            <div class="mt-1 text-2xl font-semibold">
+              <span class="num" data-count="34">0</span>
+            </div>
+          </div>
+          <div class="glass rounded-xl p-4">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              Scale-Out Ready
+            </div>
+            <div class="mt-1 text-2xl font-semibold text-brand-400">
+              6-week rollout
+            </div>
+          </div>
+        </div>
+
+        <!-- warehouse grid: featured POC only -->
+        <div class="grid grid-cols-1 gap-4">
+          <!-- Featured POC warehouse card -->
+          <div
+            class="glass-strong rounded-2xl p-6 relative overflow-hidden border border-emerald-500/20 shadow-glow-green"
+          >
+            <div
+              class="absolute -right-10 -top-10 w-56 h-56 rounded-full bg-emerald-500/15 blur-3xl"
+            ></div>
+            <div class="relative">
+              <div class="flex items-start justify-between flex-wrap gap-3">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-mono text-slate-400"
+                      >TRZ-01</span
+                    >
+                    <span class="chip brand"
+                      ><span
+                        class="pulse-dot"
+                        style="background: #3d94ff"
+                      ></span
+                      >POC Live</span
+                    >
+                    <span class="chip green"
+                      ><span class="badge-dot" style="color: #10b981"></span
+                      >Cleared</span
+                    >
+                  </div>
+                  <div class="mt-2 text-2xl font-bold leading-tight">
+                    Trichy DC
+                  </div>
+                  <div class="text-sm text-slate-400">
+                    Tiruchirappalli, Tamil Nadu · South Regional Hub
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div
+                    class="text-[10px] uppercase tracking-wider text-slate-400"
+                  >
+                    POC Window
+                  </div>
+                  <div class="text-sm font-semibold mt-0.5">
+                    10 – 23 Apr 2026
+                  </div>
+                  <div class="text-xs text-emerald-300 mt-0.5">
+                    12 days · closed
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="glass rounded-xl p-3">
+                  <div
+                    class="text-[10px] uppercase tracking-wider text-slate-400"
+                  >
+                    Gate Events
+                  </div>
+                  <div class="mt-1 text-2xl font-bold num" data-count="767">
+                    0
+                  </div>
+                </div>
+                <div class="glass rounded-xl p-3">
+                  <div
+                    class="text-[10px] uppercase tracking-wider text-slate-400"
+                  >
+                    Unique Drivers
+                  </div>
+                  <div class="mt-1 text-2xl font-bold num" data-count="536">
+                    0
+                  </div>
+                </div>
+                <div class="glass rounded-xl p-3">
+                  <div
+                    class="text-[10px] uppercase tracking-wider text-slate-400"
+                  >
+                    Risky Drivers
+                  </div>
+                  <div
+                    class="mt-1 text-2xl font-bold text-red-300 num"
+                    data-count="75"
+                  >
+                    0
+                  </div>
+                </div>
+                <div class="glass rounded-xl p-3">
+                  <div
+                    class="text-[10px] uppercase tracking-wider text-slate-400"
+                  >
+                    Drivers With Court Cases
+                  </div>
+                  <div
+                    class="mt-1 text-2xl font-bold text-amber-300 num"
+                    data-count="45"
+                  >
+                    0
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-5 grid md:grid-cols-2 gap-3 text-sm">
+                <div
+                  class="flex items-center justify-between py-2 border-b border-white/5"
+                >
+                  <span class="text-slate-400"
+                    >Avg daily throughput(In & Out)</span
+                  >
+                  <span class="font-semibold">~55 trucks / day</span>
+                </div>
+                <div
+                  class="flex items-center justify-between py-2 border-b border-white/5"
+                >
+                  <span class="text-slate-400">Exit cycle traced</span>
+                  <span class="font-semibold text-emerald-300"
+                    ><span class="num" data-count="40.5">0</span>%</span
+                  >
+                </div>
+                <div
+                  class="flex items-center justify-between py-2 border-b border-white/5"
+                >
+                  <span class="text-slate-400"
+                    >Non-transport / expired DLs caught</span
+                  >
+                  <span class="font-semibold text-red-300"
+                    ><span class="num" data-count="12">0</span></span
+                  >
+                </div>
+                <div
+                  class="flex items-center justify-between py-2 border-b border-white/5"
+                >
+                  <span class="text-slate-400">Service Provider coverage</span>
+                  <span class="font-semibold"
+                    ><span class="num" data-count="418">0</span> /
+                    <span class="num" data-count="546">0</span> entries
+                    tagged</span
+                  >
+                </div>
+                <div class="flex items-center justify-between py-2">
+                  <span class="text-slate-400"
+                    >Audit Log Entries (In, Out & Guard Action Incidents)</span
+                  >
+                  <span class="font-semibold">~5.2k · immutable</span>
+                </div>
+                <div class="flex items-center justify-between py-2">
+                  <span class="text-slate-400">Uptime</span>
+                  <span class="font-semibold text-emerald-300">99.9%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="mt-6 glass rounded-xl p-4 flex items-center gap-3 text-sm text-slate-300"
+        >
+          <svg
+            class="w-4 h-4 text-brand-400 shrink-0"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 8v4M12 16h.01" />
+          </svg>
+          Only <b class="text-white">Trichy DC</b> is a live POC. Every number
+          above is drawn from the POC dataset (10 – 23 Apr 2026). The remaining
+          36 warehouses are scale-out-ready with the same playbook — no
+          re-architecture needed.
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- 3. TRUCK MOVEMENT                                                    -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <section id="trucks" class="section">
+        <div class="flex items-end justify-between flex-wrap gap-4 mb-6">
+          <div>
+            <div class="chip brand mb-3">02 · Gate Throughput</div>
+            <h2 class="text-3xl md:text-4xl font-bold tracking-tight">
+              Truck Movement Analysis
+            </h2>
+            <p class="text-slate-400 text-sm mt-1 max-w-xl">
+              Every truck movement during the POC — entries, exits, and risk
+              flags.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid lg:grid-cols-3 gap-4 mb-6">
+          <div class="glass rounded-2xl p-5">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              Entries (In & Out)
+            </div>
+            <div class="mt-1 text-3xl font-bold num" data-count="767">0</div>
+          </div>
+          <div class="glass rounded-2xl p-5">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              Exit Events Recorded
+            </div>
+            <div
+              class="mt-1 text-3xl font-bold text-emerald-400 num"
+              data-count="221"
+            >
+              0
+            </div>
+          </div>
+          <div class="glass rounded-2xl p-5 alert-glow">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              High-Risk Entries Identified
+            </div>
+            <div
+              class="mt-1 text-3xl font-bold text-red-300 num"
+              data-count="75"
+            >
+              0
+            </div>
+            <div class="text-xs text-red-300/80 mt-1">
+              Verified risk flags across the POC window
+            </div>
+          </div>
+        </div>
+
+        <!-- Why were these entries high-risk? -->
+        <div class="mt-6 glass-strong rounded-2xl p-5 border border-red-500/20">
+          <div class="flex items-end justify-between flex-wrap gap-3 mb-4">
+            <div>
+              <div class="text-[11px] uppercase tracking-wider text-slate-400">
+                Why these <span class="num" data-count="75">0</span> DL-flagged
+                entries · reason breakdown
+              </div>
+              <div class="text-lg font-semibold">
+                Root cause for each of the
+                <span class="num" data-count="75">0</span> DL-flagged gate
+                entries
+              </div>
+            </div>
+            <span class="chip red"
+              ><span class="pulse-dot red"></span
+              ><span class="num" data-count="75">0</span> of
+              <span class="num" data-count="767">0</span> entries (<span
+                class="num"
+                data-count="9.8"
+                >0</span
+              >%)</span
+            >
+          </div>
+
+          <div class="grid md:grid-cols-3 gap-3">
+            <div class="glass rounded-xl p-4">
+              <div class="flex items-center justify-between">
+                <span
+                  class="text-[10px] uppercase tracking-wider text-slate-400"
+                  >Invalid DL</span
+                >
+              </div>
+              <div class="mt-1 text-3xl font-bold text-red-300 num">
+                <span data-count="18">0</span>
+              </div>
+              <div class="text-[10px] text-slate-400 mt-1">
+                DL number did not match the central registry at lookup — each
+                case needs manual review.
+              </div>
+              <div class="mt-2 chip green text-[10px]">
+                Fix: DL-scan + auto-verify at gate
+              </div>
+            </div>
+            <div class="glass rounded-xl p-4">
+              <div class="flex items-center justify-between">
+                <span
+                  class="text-[10px] uppercase tracking-wider text-slate-400"
+                  >Transport DL Expired</span
+                >
+              </div>
+              <div class="mt-1 text-3xl font-bold text-amber-300 num">
+                <span data-count="12">0</span>
+              </div>
+              <div class="text-[10px] text-slate-400 mt-1">
+                Transport endorsement expired (6) or personal DL only — no
+                transport class (6).
+              </div>
+              <div class="mt-2 chip amber text-[10px]">
+                Fix: contractor renewal SLA + amber alerts
+              </div>
+            </div>
+            <div class="glass rounded-xl p-4">
+              <div class="flex items-center justify-between">
+                <span
+                  class="text-[10px] uppercase tracking-wider text-slate-400"
+                >
+                  Overview – Flagged Driver Statistics
+                </span>
+              </div>
+
+              <!-- Stats Grid -->
+              <div class="grid grid-cols-2 gap-3 mt-3 text-center">
+                <div>
+                  <div class="text-[10px] text-slate-400">
+                    Total Drivers Found With Court Cases
+                  </div>
+                  <div class="text-xl font-bold">45</div>
+                </div>
+                <div>
+                  <div class="text-[10px] text-slate-400">
+                    Total Court Cases
+                  </div>
+                  <div class="text-xl font-bold">112</div>
+                </div>
+                <div>
+                  <div class="text-[10px] text-slate-400">Very High Risk</div>
+                  <div class="text-xl font-bold text-red-600">5</div>
+                </div>
+                <div>
+                  <div class="text-[10px] text-slate-400">High Risk</div>
+                  <div class="text-xl font-bold text-orange-500">25</div>
+                </div>
+                <div class="col-span-2">
+                  <div class="text-[10px] text-slate-400">Average Risk</div>
+                  <div class="text-xl font-bold text-yellow-500">14</div>
+                </div>
+              </div>
+
+              <!-- Footer Note -->
+              <div class="text-[10px] text-slate-400 mt-3">
+                Based on driver background verification and court record
+                analysis.
+              </div>
+
+              <div class="mt-2 chip text-[10px]">
+                Action: Immediate review required for high-risk drivers
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts row -->
+        <div class="grid lg:grid-cols-3 gap-4">
+          <div class="glass rounded-2xl p-5 lg:col-span-2">
+            <div class="flex items-start justify-between mb-4">
+              <div>
+                <div
+                  class="text-[11px] uppercase tracking-wider text-slate-400"
+                >
+                  Daily Entry vs Exit
+                </div>
+                <div class="text-lg font-semibold">12-day POC flow</div>
+              </div>
+              <span class="chip green">+18% efficiency</span>
+            </div>
+            <canvas id="chartEntryExit" height="140"></canvas>
+          </div>
+
+          <div class="glass rounded-2xl p-5">
+            <div class="flex items-start justify-between mb-4">
+              <div>
+                <div
+                  class="text-[11px] uppercase tracking-wider text-slate-400"
+                >
+                  Gate-to-Exit Duration
+                </div>
+                <div class="text-lg font-semibold">
+                  Measured on 221 trucks exit event with complete dwell time
+                  data
+                </div>
+              </div>
+            </div>
+            <canvas id="chartDelay" height="220"></canvas>
+            <div
+              class="mt-3 p-3 rounded-lg bg-amber-500/5 border border-amber-500/15 text-[11px]"
+            >
+              <div class="text-slate-300 leading-relaxed">
+                This dwell-time chart is computed only from trucks with recorded
+                <b class="text-white">gate-in</b> and
+                <b class="text-white">gate-out</b> timestamps. Trucks without
+                exit records are not included in the dwell-time distribution.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="mt-6 glass rounded-2xl p-5">
+          <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
+            <div class="text-[11px] uppercase tracking-wider text-slate-400">
+              Delivery Lifecycle · POC Data + Offered Capabilities
+            </div>
+            <div class="flex gap-2 flex-wrap">
+              <span class="chip green"
+                ><span class="badge-dot" style="color: #10b981"></span>POC
+                validated</span
+              >
+              <span class="chip brand"
+                ><span class="badge-dot" style="color: #3d94ff"></span>Offered
+                capability</span
+              >
+            </div>
+          </div>
+          <div class="relative pl-6">
+            <div
+              class="absolute left-2 top-2 bottom-2 w-px timeline-rail"
+            ></div>
+            <div class="space-y-4">
+              <div class="flex gap-3">
+                <div
+                  class="w-3 h-3 rounded-full bg-emerald-400 -ml-[22px] mt-1 shadow-glow-green"
+                ></div>
+                <div>
+                  <div class="text-sm font-semibold flex items-center gap-2">
+                    Gate IN — Cycle 1 · Loading
+                    <span class="chip green text-[9px]">POC</span>
+                  </div>
+                  <div class="text-xs text-slate-400">
+                    Vehicle + driver compliance checked · DL scanned · Service
+                    Providers tagged.
+                    <span class="text-emerald-300"
+                      >767 such events captured in POC.</span
+                    >
+                  </div>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div
+                  class="w-3 h-3 rounded-full bg-emerald-400 -ml-[22px] mt-1"
+                ></div>
+                <div>
+                  <div class="text-sm font-semibold flex items-center gap-2">
+                    Gate IN — Cycle 2 · Return
+                    <span class="chip green text-[9px]">POC</span>
+                  </div>
+                  <div class="text-xs text-slate-400">
+                    Truck return events logged · DL + vehicle cross-check.
+                    <span class="text-emerald-300">221 exits traced in POC</span
+                    >.
+                  </div>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div
+                  class="w-3 h-3 rounded-full bg-brand-400 -ml-[22px] mt-1"
+                ></div>
+                <div>
+                  <div class="text-sm font-semibold flex items-center gap-2">
+                    Face Compare on Exit
+                    <span class="chip brand text-[9px]">Offered</span>
+                  </div>
+                  <div class="text-xs text-slate-400">
+                    Entry vs exit face compared — catches driver substitution
+                    and unauthorised hand-offs. Not part of POC dataset; ready
+                    to activate at rollout.
+                  </div>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div
+                  class="w-3 h-3 rounded-full bg-emerald-400 -ml-[22px] mt-1"
+                ></div>
+                <div>
+                  <div class="text-sm font-semibold flex items-center gap-2">
+                    Trip Closed · Immutable Audit
+                    <span class="chip brand text-[9px]">Offered</span>
+                  </div>
+                  <div class="text-xs text-slate-400">
+                    Every event written to append-only audit store · available
+                    to CSO / regional manager pan-India.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- 4. SECURITY ALERTS                                                   -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <section id="alerts" class="section">
+        <div class="mb-6">
+          <div class="chip red mb-3">
+            <span class="pulse-dot red"></span>03 · Critical Security Feed
+          </div>
+          <h2 class="text-3xl md:text-4xl font-bold tracking-tight">
+            Security Alerts Panel
+          </h2>
+          <p class="text-slate-400 text-sm mt-1 max-w-2xl">
+            Every high-severity event is captured, timestamped, and streamed to
+            the CSO command centre in real time. These are alerts
+            <b class="text-white">your existing process would have missed.</b>
+          </p>
+        </div>
+
+        <div class="grid md:grid-cols-4 gap-3 mb-6">
+          <div class="glass rounded-xl p-4">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              Critical · Court Records
+            </div>
+            <div
+              class="mt-1 text-3xl font-bold text-red-400 num"
+              data-count="45"
+            >
+              0
+            </div>
+            <div class="text-[10px] text-slate-500 mt-0.5">
+              drivers with prior criminal / civil cases
+            </div>
+          </div>
+          <div class="glass rounded-xl p-4">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              High · Flagged
+            </div>
+            <div
+              class="mt-1 text-3xl font-bold text-amber-300 num"
+              data-count="45"
+            >
+              0
+            </div>
+            <div class="text-[10px] text-slate-500 mt-0.5">
+              unique drivers that fail policy · surfaced for review
+            </div>
+          </div>
+          <div class="glass rounded-xl p-4">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              Medium · DL Issues
+            </div>
+            <div
+              class="mt-1 text-3xl font-bold text-yellow-200 num"
+              data-count="24"
+            >
+              0
+            </div>
+            <div class="text-[10px] text-slate-500 mt-0.5">
+              18 invalid (registry mismatch) + 6 expired
+            </div>
+          </div>
+          <div class="glass rounded-xl p-4">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              Data-Quality Flags
+            </div>
+            <div
+              class="mt-1 text-3xl font-bold text-emerald-300 num"
+              data-count="128"
+            >
+              0
+            </div>
+            <div class="text-[10px] text-slate-500 mt-0.5">
+              entries with unresolved contractor mapping
+            </div>
+          </div>
+        </div>
+
+        <div id="alertList" class="space-y-3"></div>
+
+        <div class="mt-6 glass rounded-2xl p-5 flex items-center gap-4">
+          <div
+            class="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center shadow-glow-red shrink-0"
+          >
+            <svg
+              class="w-6 h-6 text-red-400"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M12 3l9 16H3zM12 10v4M12 17h.01" />
+            </svg>
+          </div>
+          <div class="flex-1">
+            <div class="font-semibold">
+              POC analysis surfaced 53 drivers with court records who currently
+              enter warehouses undetected.
+            </div>
+            <div class="text-xs text-slate-400">
+              Typical insurance & compliance exposure:
+              <span class="text-red-300 font-semibold"
+                >₹8–14 L per incident</span
+              >
+              — avoidable with live enforcement.
+            </div>
+          </div>
+          <button
+            onclick="showTab('roi')"
+            class="text-xs font-semibold px-4 py-2 rounded-lg bg-emerald-500 text-ink-950 hover:bg-emerald-400 transition shrink-0"
+          >
+            Quantify savings
+          </button>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- 4B. SERVICE PROVIDERS / CONTRACTORS                                  -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <section id="providers" class="section">
+        <div class="mb-6">
+          <div class="chip brand mb-3">
+            <span class="pulse-dot" style="background: #3d94ff"></span>04 ·
+            Attribution Layer
+          </div>
+          <h2 class="text-3xl md:text-4xl font-bold tracking-tight">
+            Service Provider Intelligence
+          </h2>
+          <p class="text-slate-400 text-sm mt-1 max-w-2xl">
+            Every driver attached to a named service provider is tracked below.
+            POC identified
+            <b class="text-white"
+              ><span class="num" data-count="46">0</span> unique Service
+              Providers</b
+            >
+            carrying your freight through Trichy DC — ranked by volume &amp;
+            risk
+          </p>
+        </div>
+
+        <!-- KPI row -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div class="glass rounded-xl p-4">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              Unique Providers
+            </div>
+            <div class="mt-1 text-3xl font-bold num" data-count="31">0</div>
+            <div class="text-[10px] text-slate-500 mt-0.5">
+              named in POC dataset
+            </div>
+          </div>
+          <div class="glass rounded-xl p-4">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              Entries Tagged
+            </div>
+            <div class="mt-1 text-3xl font-bold text-emerald-400 num">
+              <span data-count="418">0</span>
+              <span class="text-sm text-slate-500"
+                >/ <span class="num" data-count="546">0</span></span
+              >
+            </div>
+          </div>
+          <div class="glass rounded-xl p-4">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              Untagged Entries
+            </div>
+            <div
+              class="mt-1 text-3xl font-bold text-amber-300 num"
+              data-count="128"
+            >
+              0
+            </div>
+            <div class="text-[10px] text-amber-300/80 mt-0.5">
+              <span class="num" data-count="23.4">0</span>% · provider missing ·
+              action needed
+            </div>
+          </div>
+          <div class="glass rounded-xl p-4">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              High-Risk Across Providers
+            </div>
+            <div
+              class="mt-1 text-3xl font-bold text-red-300 num"
+              data-count="75"
+            >
+              0
+            </div>
+            <div class="text-[10px] text-red-300/80 mt-0.5">
+              <span class="num" data-count="10.8">0</span>% of tagged entries ·
+              flagged for review
+            </div>
+          </div>
+        </div>
+
+        <!-- Concentration + Table -->
+        <div class="grid lg:grid-cols-3 gap-4 mb-6">
+          <!-- Concentration chart -->
+          <div class="glass rounded-2xl p-5">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <div
+                  class="text-[11px] uppercase tracking-wider text-slate-400"
+                >
+                  Volume Concentration
+                </div>
+                <div class="text-lg font-semibold">
+                  Top 5 providers · 90% of tagged volume
+                </div>
+              </div>
+            </div>
+            <canvas id="chartProviderMix" height="220"></canvas>
+            <div class="mt-3 text-xs text-slate-400">
+              LSG &amp; CO alone carries
+              <span class="text-white font-semibold">47%</span> of tagged Trichy
+              freight — concentration risk worth reviewing with procurement.
+            </div>
+          </div>
+
+          <!-- Risk ranking -->
+          <div class="glass rounded-2xl p-5 lg:col-span-2 overflow-hidden">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <div
+                  class="text-[11px] uppercase tracking-wider text-slate-400"
+                >
+                  Top 10 Providers · Risk-Ranked
+                </div>
+                <div class="text-lg font-semibold">
+                  Court records · DL hygiene · risk tier
+                </div>
+              </div>
+            </div>
+            <div class="overflow-x-auto scroll-x">
+              <table class="w-full text-sm min-w-[640px]">
+                <thead>
+                  <tr
+                    class="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-white/5"
+                  >
+                    <th class="py-2 pr-3">Provider</th>
+                    <th
+                      class="py-2 px-2 text-right"
+                      title="Drivers with court / FIR records"
+                    >
+                      Court Flagged
+                    </th>
+                    <th
+                      class="py-2 px-2 text-right"
+                      title="Driver holds Personal DL only — no Transport licence"
+                    >
+                      Non-Transport DL
+                    </th>
+                    <th
+                      class="py-2 px-2 text-right"
+                      title="Transport DL has expired"
+                    >
+                      Expired DL
+                    </th>
+                    <th
+                      class="py-2 px-2 text-right"
+                      title="DL not found in licence database"
+                    >
+                      Invalid DL
+                    </th>
+                    <th
+                      class="py-2 px-2 text-right"
+                      title="Court Flagged + Non-Transport + Expired + Invalid DL"
+                    >
+                      Total Flags
+                    </th>
+                    <th class="py-2 pl-2 text-right">Risk</th>
+                  </tr>
+                </thead>
+                <tbody
+                  id="providerRows"
+                  class="divide-y divide-white/5"
+                ></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vendor-wise flagged drivers (from verified court-case flags) -->
+        <div class="glass rounded-2xl p-5 mb-6">
+          <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <div>
+              <div class="text-[11px] uppercase tracking-wider text-slate-400">
+                Vendor-wise flagged driver count
+              </div>
+              <div class="text-lg font-semibold">
+                Court-case flagged drivers by service providers
+              </div>
+            </div>
+            <span class="chip amber">Verified list</span>
+          </div>
+          <div class="overflow-x-auto scroll-x">
+            <table class="w-full text-sm min-w-[680px]">
+              <thead>
+                <tr
+                  class="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-white/5"
+                >
+                  <th class="py-2 pr-3">Vendor / Contractor</th>
+                  <th class="py-2 pl-2 text-right">Flagged Drivers</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-white/5">
+                <tr class="hover:bg-white/[.02] transition">
+                  <td class="py-2 pr-3">LSG &amp; Co</td>
+                  <td class="py-2 pl-2 text-right font-mono text-amber-300">
+                    15
+                  </td>
+                </tr>
+                <tr class="hover:bg-white/[.02] transition">
+                  <td class="py-2 pr-3">VARUN LOGISTICS</td>
+                  <td class="py-2 pl-2 text-right font-mono text-amber-300">
+                    9
+                  </td>
+                </tr>
+                <tr class="hover:bg-white/[.02] transition">
+                  <td class="py-2 pr-3">AMMAN TRANSPORTS</td>
+                  <td class="py-2 pl-2 text-right font-mono text-amber-300">
+                    6
+                  </td>
+                </tr>
+                <tr class="hover:bg-white/[.02] transition">
+                  <td class="py-2 pr-3">A L TRANS PRIVATE LIMITED</td>
+                  <td class="py-2 pl-2 text-right font-mono text-amber-300">
+                    2
+                  </td>
+                </tr>
+                <tr class="hover:bg-white/[.02] transition">
+                  <td class="py-2 pr-3">JSM LOGISTICS PVT. LTD.</td>
+                  <td class="py-2 pl-2 text-right font-mono text-amber-300">
+                    2
+                  </td>
+                </tr>
+                <tr class="hover:bg-white/[.02] transition">
+                  <td class="py-2 pr-3">TIRUPATI LOGISTICS PVT. LTD</td>
+                  <td class="py-2 pl-2 text-right font-mono text-amber-300">
+                    2
+                  </td>
+                </tr>
+                <tr class="hover:bg-white/[.02] transition">
+                  <td class="py-2 pr-3">COSMO CARRYING PRIVATE LIMITED</td>
+                  <td class="py-2 pl-2 text-right font-mono text-amber-300">
+                    1
+                  </td>
+                </tr>
+                <tr class="hover:bg-white/[.02] transition">
+                  <td class="py-2 pr-3">KAPOOR DIESELS GARAGE PVT LTD</td>
+                  <td class="py-2 pl-2 text-right font-mono text-amber-300">
+                    1
+                  </td>
+                </tr>
+                <tr class="hover:bg-white/[.02] transition">
+                  <td class="py-2 pr-3">SOUTHERN CARGO CARRIERS (INDIA)</td>
+                  <td class="py-2 pl-2 text-right font-mono text-amber-300">
+                    1
+                  </td>
+                </tr>
+                <tr class="hover:bg-white/[.02] transition">
+                  <td class="py-2 pr-3">VAYUDOOT ROAD CARRIERS PVT LTD</td>
+                  <td class="py-2 pl-2 text-right font-mono text-amber-300">
+                    1
+                  </td>
+                </tr>
+                <tr class="hover:bg-white/[.02] transition">
+                  <td class="py-2 pr-3">Sri Pragati Transports</td>
+                  <td class="py-2 pl-2 text-right font-mono text-amber-300">
+                    1
+                  </td>
+                </tr>
+                <tr class="hover:bg-white/[.02] transition">
+                  <td class="py-2 pr-3">DELHIVERY</td>
+                  <td class="py-2 pl-2 text-right font-mono text-amber-300">
+                    1
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Untagged callout -->
+        <div
+          class="glass rounded-2xl p-5 flex flex-col md:flex-row gap-4 md:items-center md:justify-between"
+        >
+          <div class="flex items-start gap-3">
+            <div
+              class="w-10 h-10 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0"
+            >
+              <svg
+                class="w-5 h-5 text-amber-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M12 3l9 16H3zM12 10v4M12 17h.01" />
+              </svg>
+            </div>
+            <div>
+              <div class="font-semibold">
+                <span class="num" data-count="128">0</span> entries (<span
+                  class="num"
+                  data-count="23.4"
+                  >0</span
+                >%) had
+                <span class="text-amber-300">no contractor attribution</span>
+                before Fraudcheck.ai.
+              </div>
+              <div class="text-xs text-slate-400 mt-0.5">
+                Revenue &amp; liability tied to unnamed suppliers — now captured
+                at the gate via mandatory provider tagging (with inline "add new
+                contractor" fallback).
+              </div>
+            </div>
+          </div>
+          <div class="text-xs chip brand shrink-0">
+            Capability: Contractor auto-complete · inline add · WH-manager
+            completion queue
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- 4C. DRIVER INTELLIGENCE                                              -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <section id="drivers" class="section">
+        <div class="mb-6">
+          <div class="chip brand mb-3">
+            <span class="pulse-dot" style="background: #3d94ff"></span>05 ·
+            Driver Intelligence
+          </div>
+          <h2 class="text-3xl md:text-4xl font-bold tracking-tight">
+            Driver Intelligence
+          </h2>
+          <p class="text-slate-400 text-sm mt-1 max-w-2xl">
+            Every driver below is
+            <b class="text-white">attached to a named service provider</b> — the
+            basis of trustworthy gate intelligence.
+            <b class="text-amber-300"
+              ><span class="num" data-count="128">0</span> untagged entries</b
+            >
+            and any driver without a provider attribution are
+            <b class="text-white">excluded</b> from this intel as potentially
+            invalid attempts.
+          </p>
+        </div>
+
+        <!-- KPI row -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div class="glass rounded-xl p-4">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              Drivers Attached to a Provider
+            </div>
+            <div
+              class="mt-1 text-3xl font-bold text-brand-300 num"
+              data-count="434"
+            >
+              0
+            </div>
+            <div class="text-[10px] text-slate-500 mt-0.5">
+              unique DLs · <span class="num" data-count="418">0</span> total
+              entries
+            </div>
+          </div>
+          <div class="glass rounded-xl p-4">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              Court Records Found
+            </div>
+            <div
+              class="mt-1 text-3xl font-bold text-red-300 num"
+              data-count="45"
+            >
+              0
+            </div>
+            <div class="text-[10px] text-slate-500 mt-0.5">
+              criminal / civil cases on driver DL
+            </div>
+          </div>
+          <div class="glass rounded-xl p-4">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              DL Mismatch at Exit
+            </div>
+            <div
+              class="mt-1 text-3xl font-bold text-amber-300 num"
+              data-count="19"
+            >
+              0
+            </div>
+            <div class="text-[10px] text-slate-500 mt-0.5">
+              in-DL ≠ out-DL · possible driver swap
+            </div>
+          </div>
+          <div class="glass rounded-xl p-4">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">
+              Repeat-Offence Drivers
+            </div>
+            <div class="mt-1 text-3xl font-bold text-red-300 num">
+              <span data-count="22">0</span>
+              <span class="text-sm text-slate-500"
+                >/ <span class="num" data-count="45">0</span></span
+              >
+            </div>
+            <div class="text-[10px] text-slate-500 mt-0.5">
+              drivers with ≥ 2 court records
+            </div>
+          </div>
+        </div>
+
+        <!-- 1. High-risk drivers with court records -->
+        <div class="glass-strong rounded-2xl p-5 mb-6 border border-red-500/20">
+          <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <div>
+              <div class="text-[11px] uppercase tracking-wider text-slate-400">
+                Highest-Risk Drivers · Top 10 by Court Cases
+              </div>
+              <div class="text-lg font-semibold">
+                These drivers are currently entering your warehouse
+              </div>
+            </div>
+            <span class="chip red"
+              ><span class="pulse-dot red"></span>Flagged for background
+              review</span
+            >
+          </div>
+          <div class="overflow-x-auto scroll-x">
+            <table class="w-full text-[12px] min-w-[640px]">
+              <thead>
+                <tr
+                  class="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-white/5"
+                >
+                  <th class="py-2 pr-2">Driver Name</th>
+                  <th class="py-2 pr-2">DL Number</th>
+                  <th class="py-2 pr-2">Attached Provider</th>
+                  <th class="py-2 px-2 text-right">Cases</th>
+                  <th class="py-2 pl-2 text-right">Risk</th>
+                </tr>
+              </thead>
+              <tbody
+                id="driverHighRisk"
+                class="divide-y divide-white/5 font-mono"
+              ></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 2. OUT DL Mismatch · driver licence changed between gate-in and gate-out -->
+        <div class="glass rounded-2xl p-5 mb-6 border border-amber-500/15">
+          <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <div>
+              <div class="text-[11px] uppercase tracking-wider text-slate-400">
+                OUT DL Mismatch · All 19
+              </div>
+              <div class="text-lg font-semibold">
+                Driver licence changed between gate-in and gate-out
+              </div>
+            </div>
+            <span class="chip amber">Review: possible driver substitution</span>
+          </div>
+          <div class="overflow-x-auto scroll-x">
+            <table class="w-full text-[12px] min-w-[760px]">
+              <thead>
+                <tr
+                  class="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-white/5"
+                >
+                  <th class="py-2 pr-2">Gate-In</th>
+                  <th class="py-2 pr-2">Gate-Out</th>
+                  <th class="py-2 pr-2">Driver Name</th>
+                  <th class="py-2 pr-2">In DL Number</th>
+                  <th class="py-2 pl-2">Out DL Number</th>
+                </tr>
+              </thead>
+              <tbody
+                id="dlMismatch"
+                class="divide-y divide-white/5 font-mono"
+              ></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Exclusion note -->
+        <div class="glass rounded-xl p-4 flex items-start gap-3 text-sm">
+          <svg
+            class="w-4 h-4 text-slate-400 mt-0.5 shrink-0"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 8v4M12 16h.01" />
+          </svg>
+          <div class="text-slate-300">
+            <b class="text-white">Excluded from Driver Intel:</b> any entry
+            without a provider attribution (<span class="num" data-count="546"
+              >0</span
+            >
+            records) and any entry without a recorded DL. These are likely
+            invalid attempts or data-quality gaps and are not treated as
+            trustworthy driver signal.
+            <span class="block text-xs text-slate-500 mt-1"
+              >Source: POC dataset · Trichy DC · 10–23 Apr 2026 ·
+              <span class="num" data-count="546">0</span> entries.</span
+            >
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- 7. ROI & BUSINESS IMPACT                                             -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <section id="roi" class="section">
+        <div class="mb-6">
+          <div class="chip green mb-3">
+            <span class="pulse-dot"></span>06 · Decision Brief · Board-Grade
+          </div>
+          <h2 class="text-3xl md:text-4xl font-bold tracking-tight">
+            ROI & Business Impact
+          </h2>
+          <p class="text-slate-400 text-sm mt-1 max-w-2xl">
+            A simple before/after view focused on control, traceability, and
+            operational speed — without debated ₹ projections.
+          </p>
+        </div>
+
+        <!-- BEFORE vs AFTER -->
+        <div class="grid md:grid-cols-2 gap-4 mb-8">
+          <div class="glass-strong rounded-2xl p-6 border border-red-500/20">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="chip red"
+                ><span class="pulse-dot red"></span>Before · No System</span
+              >
+              <span class="text-xs text-slate-400">current state</span>
+            </div>
+            <div
+              class="text-[11px] uppercase tracking-wider text-slate-500 mb-2"
+            >
+              Pros
+            </div>
+            <ul class="space-y-2 text-sm mb-5">
+              <li class="flex gap-3">
+                <span
+                  class="w-5 h-5 rounded-full bg-slate-500/15 flex items-center justify-center shrink-0 mt-0.5"
+                  ><span class="w-2 h-2 rounded-full bg-slate-400"></span
+                ></span>
+                <div>Lowest change-management overhead (works “as-is”).</div>
+              </li>
+              <li class="flex gap-3">
+                <span
+                  class="w-5 h-5 rounded-full bg-slate-500/15 flex items-center justify-center shrink-0 mt-0.5"
+                  ><span class="w-2 h-2 rounded-full bg-slate-400"></span
+                ></span>
+                <div>No new SOP or training required.</div>
+              </li>
+            </ul>
+
+            <div
+              class="text-[11px] uppercase tracking-wider text-slate-500 mb-2"
+            >
+              Cons / risks
+            </div>
+            <ul class="space-y-3 text-sm">
+              <li class="flex gap-3">
+                <span
+                  class="w-5 h-5 rounded-full bg-red-500/20 flex items-center justify-center shrink-0 mt-0.5"
+                  ><span class="w-2 h-2 rounded-full bg-red-400"></span
+                ></span>
+                <div>
+                  <b class="text-white">Zero real-time visibility</b> across 37
+                  warehouses — CSO relies on spreadsheets & calls.
+                </div>
+              </li>
+              <li class="flex gap-3">
+                <span
+                  class="w-5 h-5 rounded-full bg-red-500/20 flex items-center justify-center shrink-0 mt-0.5"
+                  ><span class="w-2 h-2 rounded-full bg-red-400"></span
+                ></span>
+                <div>
+                  <b class="text-white">Weak gate enforcement</b> — manual
+                  checks and inconsistent records.
+                </div>
+              </li>
+              <li class="flex gap-3">
+                <span
+                  class="w-5 h-5 rounded-full bg-red-500/20 flex items-center justify-center shrink-0 mt-0.5"
+                  ><span class="w-2 h-2 rounded-full bg-red-400"></span
+                ></span>
+                <div>
+                  <b class="text-white">Paper-based POD</b> — disputes take 3–7
+                  days, revenue leakage in returns.
+                </div>
+              </li>
+              <li class="flex gap-3">
+                <span
+                  class="w-5 h-5 rounded-full bg-red-500/20 flex items-center justify-center shrink-0 mt-0.5"
+                  ><span class="w-2 h-2 rounded-full bg-red-400"></span
+                ></span>
+                <div>
+                  <b class="text-white">No structured gate timestamps</b> ·
+                  scheduling, billing &amp; dispute cycles all rely on memory
+                  and paper.
+                </div>
+              </li>
+              <li class="flex gap-3">
+                <span
+                  class="w-5 h-5 rounded-full bg-red-500/20 flex items-center justify-center shrink-0 mt-0.5"
+                  ><span class="w-2 h-2 rounded-full bg-red-400"></span
+                ></span>
+                <div>
+                  <b class="text-white">No immutable audit trail</b> for
+                  insurance / regulatory defence.
+                </div>
+              </li>
+            </ul>
+            <div
+              class="mt-4 pt-4 border-t border-white/5 text-xs text-slate-400"
+            >
+              Summary: low effort today, but high operational risk and weak
+              auditability.
+            </div>
+          </div>
+
+          <div
+            class="glass-strong rounded-2xl p-6 border border-emerald-500/20 shadow-glow-green"
+          >
+            <div class="flex items-center gap-2 mb-4">
+              <span class="chip green"
+                ><span class="pulse-dot"></span>After · With Fraudcheck.ai</span
+              >
+              <span class="text-xs text-slate-400">simplified impact view</span>
+            </div>
+            <div
+              class="text-[11px] uppercase tracking-wider text-slate-500 mb-2"
+            >
+              Pros
+            </div>
+            <ul class="space-y-3 text-sm mb-5">
+              <li class="flex gap-3">
+                <span
+                  class="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5"
+                >
+                  <svg
+                    class="w-3 h-3 text-emerald-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                  >
+                    <path d="M5 12l5 5L20 7" />
+                  </svg>
+                </span>
+                <div>
+                  <b class="text-white">Live pan-India command view</b> — every
+                  gate, truck and alert in one console.
+                </div>
+              </li>
+              <li class="flex gap-3">
+                <span
+                  class="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5"
+                >
+                  <svg
+                    class="w-3 h-3 text-emerald-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                  >
+                    <path d="M5 12l5 5L20 7" />
+                  </svg>
+                </span>
+                <div>
+                  <b class="text-white">Stronger gate discipline</b> —
+                  standardized flow reduces ad-hoc decisions.
+                </div>
+              </li>
+              <li class="flex gap-3">
+                <span
+                  class="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5"
+                >
+                  <svg
+                    class="w-3 h-3 text-emerald-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                  >
+                    <path d="M5 12l5 5L20 7" />
+                  </svg>
+                </span>
+                <div>
+                  <b class="text-white">Digital POD via QR + dealer PIN</b> —
+                  disputes closed in minutes, not days.
+                </div>
+              </li>
+              <li class="flex gap-3">
+                <span
+                  class="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5"
+                >
+                  <svg
+                    class="w-3 h-3 text-emerald-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                  >
+                    <path d="M5 12l5 5L20 7" />
+                  </svg>
+                </span>
+                <div>
+                  <b class="text-white">Structured timestamps</b> — entry/exit
+                  times become queryable operations data.
+                </div>
+              </li>
+              <li class="flex gap-3">
+                <span
+                  class="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5"
+                >
+                  <svg
+                    class="w-3 h-3 text-emerald-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                  >
+                    <path d="M5 12l5 5L20 7" />
+                  </svg>
+                </span>
+                <div>
+                  <b class="text-white">Immutable audit trail</b> on every gate
+                  event — insurance & legal-grade.
+                </div>
+              </li>
+            </ul>
+
+            <div
+              class="mt-4 pt-4 border-t border-white/5 text-xs text-slate-400"
+            >
+              Summary: higher upfront change, but materially stronger control,
+              traceability, and operational clarity.
+            </div>
+          </div>
+        </div>
+
+        <!-- SIMPLE RECOMMENDATION (no debated numbers) -->
+        <div class="glass-strong rounded-2xl p-6 border border-white/10">
+          <div class="text-[11px] uppercase tracking-wider text-slate-400">
+            Recommendation
+          </div>
+          <div class="mt-2 text-lg font-semibold leading-snug">
+            Roll out a controlled deployment: start with 1–2 DCs, lock SOP at
+            the gate, and review weekly exceptions. Keep the value story
+            operational (control, traceability, speed) — add ₹ ROI only after
+            finance validates assumptions.
+          </div>
+          <div class="mt-4 grid md:grid-cols-3 gap-3 text-sm">
+            <div class="glass rounded-xl p-4">
+              <div class="text-[10px] uppercase tracking-wider text-slate-500">
+                What improves first
+              </div>
+              <div class="mt-1 text-slate-200">
+                Visibility + audit trail + standardized gate flow
+              </div>
+            </div>
+            <div class="glass rounded-xl p-4">
+              <div class="text-[10px] uppercase tracking-wider text-slate-500">
+                What needs discipline
+              </div>
+              <div class="mt-1 text-slate-200">
+                Adoption, data capture quality, exception handling
+              </div>
+            </div>
+            <div class="glass rounded-xl p-4">
+              <div class="text-[10px] uppercase tracking-wider text-slate-500">
+                How to measure
+              </div>
+              <div class="mt-1 text-slate-200">
+                Exit capture rate, dispute turnaround, cycle time, incident
+                closure
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- 8. CAPABILITIES                                                      -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <section id="capabilities" class="section">
+        <div class="mb-6">
+          <div class="chip brand mb-3">07 · Platform Fabric</div>
+          <h2 class="text-3xl md:text-4xl font-bold tracking-tight">
+            System Capabilities
+          </h2>
+          <p class="text-slate-400 text-sm mt-1 max-w-2xl">
+            Enterprise-grade core · proven in POC · engineered to scale from 1
+            to 100+ warehouses without rework.
+          </p>
+        </div>
+
+        <div
+          class="grid md:grid-cols-2 lg:grid-cols-3 gap-4"
+          id="capGrid"
+        ></div>
+
+        <div class="mt-8 glass rounded-2xl p-6">
+          <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-3">
+            Trust & Security Architecture
+          </div>
+          <div class="grid md:grid-cols-4 gap-3 text-sm">
+            <div class="flex items-start gap-2">
+              <span class="text-emerald-400">●</span>
+              <div>
+                <b>Immutable audit log</b><br /><span
+                  class="text-slate-400 text-xs"
+                  >append-only, never mutated</span
+                >
+              </div>
+            </div>
+            <div class="flex items-start gap-2">
+              <span class="text-emerald-400">●</span>
+              <div>
+                <b>Tenant isolation</b><br /><span
+                  class="text-slate-400 text-xs"
+                  >organisation-scoped security rules</span
+                >
+              </div>
+            </div>
+            <div class="flex items-start gap-2">
+              <span class="text-emerald-400">●</span>
+              <div>
+                <b>Role-based access</b><br /><span
+                  class="text-slate-400 text-xs"
+                  >Guard · Manager · CSO · Super-admin</span
+                >
+              </div>
+            </div>
+            <div class="flex items-start gap-2">
+              <span class="text-emerald-400">●</span>
+              <div>
+                <b>PIN never returned</b><br /><span
+                  class="text-slate-400 text-xs"
+                  >dealer PINs sent via SMS only</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer
+      class="max-w-[1400px] mx-auto px-6 py-8 mt-10 border-t border-white/5"
+    >
+      <div
+        class="flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-slate-500"
+      >
+        <div class="flex items-center gap-3">
+          <span class="pulse-dot"></span>
+          <span>Fraudcheck.ai</span>
+          <span class="text-slate-700">·</span>
+          <span>POC data: 10 Apr – 23 Apr 2026</span>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="text-slate-700">·</span>
+          <span>Confidential · Board Circulation Only</span>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      var charts = {};
+      /* ─────────────────────────── DATA (embedded POC snapshot) ─────────────────────────── */
+
+      const WAREHOUSES = [
+        {
+          name: "Trichy DC",
+          code: "TRZ-01",
+          city: "Tiruchirappalli, TN",
+          risk: "green",
+          status: "POC Live · Apr 2026",
+          trucks: 38,
+          mtd: 546,
+          denials: 0,
+          flags: 0,
+          poc: true,
+        },
+      ];
+
+      const ALERTS = [
+        {
+          sev: "critical",
+          type: "Face Mismatch at Exit",
+          vehicle: "KA05-BH 3412",
+          driver: "Ravi K. · DL KA05-2013…",
+          note: "Exit face match score 53 · manager review recommended.",
+          time: "Today · 14:21",
+          outcome: "Flagged · incident pattern #INC-0087",
+        },
+        {
+          sev: "critical",
+          type: "Court Record Flag",
+          vehicle: "TN45-AP 8890",
+          driver: "Thimmaraju M. · DL KA05-2013…",
+          note: "1 civil case (Motor Vehicle Act) · High Risk match 75%.",
+          time: "Today · 12:06",
+          outcome: "Flagged for background review",
+        },
+        {
+          sev: "critical",
+          type: "Invalid DL Detected",
+          vehicle: "UP26-DH 1452",
+          driver: "Unverified · DL UP26-20200…",
+          note: "DL record not found in central registry · 32 similar cases this batch · 6 confirmed as guard entry errors.",
+          time: "Today · 10:45",
+          outcome: "Flagged for DL verification",
+        },
+        {
+          sev: "medium",
+          type: "DL Expiring in 18 Days",
+          vehicle: "KA05-BH 2210",
+          driver: "Giri N.",
+          note: "Amber alert · scheduled for renewal · cleared to enter under current rules.",
+          time: "3 days ago · 08:55",
+          outcome: "Notify contractor",
+        },
+      ];
+
+      // ─── Driver Intelligence (only drivers attached to a provider) ───
+      // Source: eCourt / FIR Database · 45 drivers · sorted Very High → High → Average → Low, then by cases desc.
+      const DRIVER_HIGH_RISK = [
+        {
+          name: "SURESH A",
+          dl: "TN25-Z19950000571",
+          prov: "VARUN LOGISTICS",
+          cases: 4,
+          risk: "Very High Risk",
+        },
+        {
+          name: "ASHOK KUMAR G",
+          dl: "TN46-19940000974",
+          prov: "LSG & Co",
+          cases: 3,
+          risk: "Very High Risk",
+        },
+        {
+          name: "RAJ KUMAR",
+          dl: "UP13-20140027846",
+          prov: "KAPOOR DIESELS GARAGE PVT LTD",
+          cases: 3,
+          risk: "Very High Risk",
+        },
+        {
+          name: "VINOTH",
+          dl: "TN32-20250001831",
+          prov: "LSG & Co",
+          cases: 1,
+          risk: "Very High Risk",
+        },
+        {
+          name: "AKEEL AHMAD",
+          dl: "UP25-20140020794",
+          prov: "Not Available",
+          cases: 1,
+          risk: "Very High Risk",
+        },
+        {
+          name: "PERIYASAMY C",
+          dl: "TN33-20160004669",
+          prov: "LSG & CO",
+          cases: 13,
+          risk: "High Risk",
+        },
+        {
+          name: "SAKTHIVEL S",
+          dl: "TN27-Z20020001549",
+          prov: "LSG & Co",
+          cases: 11,
+          risk: "High Risk",
+        },
+        {
+          name: "SARAVANAN J",
+          dl: "TN27-Y20030001523",
+          prov: "TIRUPATI LOGISTICS PVT. LTD",
+          cases: 7,
+          risk: "High Risk",
+        },
+        {
+          name: "SEKAR N",
+          dl: "TN32-Z19940001110",
+          prov: "SOUTHERN CARGO CARRIERS (INDIA)",
+          cases: 4,
+          risk: "High Risk",
+        },
+        {
+          name: "SIVAKUMAR P",
+          dl: "TN28-19950002742",
+          prov: "TIRUPATI LOGISTICS PVT. LTD",
+          cases: 3,
+          risk: "High Risk",
+        },
+        {
+          name: "RAVICHANDRAN P",
+          dl: "TN27-19950009341",
+          prov: "VARUN LOGISTICS",
+          cases: 3,
+          risk: "High Risk",
+        },
+        {
+          name: "KUMARESAN M",
+          dl: "TN54-20130000563",
+          prov: "JSM LOGISTICS PVT. LTD.",
+          cases: 3,
+          risk: "High Risk",
+        },
+        {
+          name: "PRAKASH N",
+          dl: "TN32-20120004724",
+          prov: "VARUN LOGISTICS",
+          cases: 3,
+          risk: "High Risk",
+        },
+        {
+          name: "KARTHICK M",
+          dl: "TN64-20210002763",
+          prov: "VARUN LOGISTICS",
+          cases: 3,
+          risk: "High Risk",
+        },
+        {
+          name: "RAJESH R",
+          dl: "TN51-W20050001701",
+          prov: "Not Available",
+          cases: 2,
+          risk: "High Risk",
+        },
+        {
+          name: "SENTHILKUMAR J",
+          dl: "TN32-19920001313",
+          prov: "VAYUDOOT ROAD CARRIERS PVT LTD",
+          cases: 2,
+          risk: "High Risk",
+        },
+        {
+          name: "SENTHILKUMAR P",
+          dl: "TN45-20020017428",
+          prov: "A L TRANS PRIVATE LIMITED",
+          cases: 2,
+          risk: "High Risk",
+        },
+        {
+          name: "PREMKUMAR M",
+          dl: "TN58-Z20090001952",
+          prov: "LSG & Co",
+          cases: 2,
+          risk: "High Risk",
+        },
+        {
+          name: "SUBRAMANIAN K",
+          dl: "TN45-19920002118",
+          prov: "AMMAN TRANSPORTS",
+          cases: 1,
+          risk: "High Risk",
+        },
+        {
+          name: "THIMMARAJU M",
+          dl: "KA05-20130025235",
+          prov: "Not Available",
+          cases: 1,
+          risk: "High Risk",
+        },
+        {
+          name: "KARUPPAIAH R",
+          dl: "TN45-19990002904",
+          prov: "LSG & Co",
+          cases: 1,
+          risk: "High Risk",
+        },
+        {
+          name: "NEELAKANDAN M",
+          dl: "TN63-Z20170011570",
+          prov: "Not Available",
+          cases: 1,
+          risk: "High Risk",
+        },
+        {
+          name: "SURESH A",
+          dl: "TN45-19940004775",
+          prov: "LSG & Co",
+          cases: 1,
+          risk: "High Risk",
+        },
+        {
+          name: "VIJU ANTONY",
+          dl: "KL45-19970003561",
+          prov: "LSG & Co",
+          cases: 1,
+          risk: "High Risk",
+        },
+        {
+          name: "SELVAM T",
+          dl: "TN63-20080005069",
+          prov: "AMMAN TRANSPORTS",
+          cases: 1,
+          risk: "High Risk",
+        },
+        {
+          name: "DHANRAJ T",
+          dl: "TN24-20150001011",
+          prov: "AMMAN TRANSPORTS",
+          cases: 1,
+          risk: "High Risk",
+        },
+        {
+          name: "DILIP MAHATO",
+          dl: "WB01-20030437399",
+          prov: "LSG & Co",
+          cases: 1,
+          risk: "High Risk",
+        },
+        {
+          name: "SARAVANAKUMAR S",
+          dl: "TN23-Z19990004030",
+          prov: "LSG & Co",
+          cases: 1,
+          risk: "High Risk",
+        },
+        {
+          name: "RAJA M",
+          dl: "TN45-20031024424",
+          prov: "VARUN LOGISTICS",
+          cases: 1,
+          risk: "High Risk",
+        },
+        {
+          name: "SIVAKUMAR M",
+          dl: "TN47-20020000074",
+          prov: "LSG & Co",
+          cases: 1,
+          risk: "High Risk",
+        },
+        {
+          name: "SHANMUGAM A",
+          dl: "TN47-19970003236",
+          prov: "LSG & Co",
+          cases: 8,
+          risk: "Average Risk",
+        },
+        {
+          name: "SARAVANAN M",
+          dl: "TN47-20080000377",
+          prov: "VARUN LOGISTICS",
+          cases: 4,
+          risk: "Average Risk",
+        },
+        {
+          name: "GANESAN S",
+          dl: "TN72-19800000334",
+          prov: "JSM LOGISTICS PVT. LTD.",
+          cases: 3,
+          risk: "Average Risk",
+        },
+        {
+          name: "SRINIVASAN V",
+          dl: "TN45-Z20180006815",
+          prov: "LSG & Co",
+          cases: 2,
+          risk: "Average Risk",
+        },
+        {
+          name: "PRABAKARAN V",
+          dl: "TN50-20100002633",
+          prov: "LSG & Co",
+          cases: 2,
+          risk: "Average Risk",
+        },
+        {
+          name: "SUDHAKAR S",
+          dl: "TN82-20190003871",
+          prov: "AMMAN TRANSPORTS",
+          cases: 2,
+          risk: "Average Risk",
+        },
+        {
+          name: "ARAVINTH P",
+          dl: "TN45-20120009983",
+          prov: "LSG & Co",
+          cases: 1,
+          risk: "Average Risk",
+        },
+        {
+          name: "SARAVANAN S",
+          dl: "TN31-U20020000125",
+          prov: "VARUN LOGISTICS",
+          cases: 1,
+          risk: "Average Risk",
+        },
+        {
+          name: "THIYAGARAJAN S",
+          dl: "TN66-20160009117",
+          prov: "LSG & Co",
+          cases: 1,
+          risk: "Average Risk",
+        },
+        {
+          name: "SRINIVASAN M",
+          dl: "TN31-U20060000713",
+          prov: "VARUN LOGISTICS",
+          cases: 1,
+          risk: "Average Risk",
+        },
+        {
+          name: "CHANDRASEKAR P",
+          dl: "TN32-W20120003102",
+          prov: "AMMAN TRANSPORTS",
+          cases: 1,
+          risk: "Average Risk",
+        },
+        {
+          name: "ARUMUGAM S",
+          dl: "TN45-20040012198",
+          prov: "VARUN LOGISTICS",
+          cases: 1,
+          risk: "Average Risk",
+        },
+        {
+          name: "THANGAIYAN M",
+          dl: "TN31-20020005497",
+          prov: "AMMAN TRANSPORTS",
+          cases: 1,
+          risk: "Average Risk",
+        },
+        {
+          name: "MURUGESAN G",
+          dl: "TN33-19950001695",
+          prov: "A L TRANS PRIVATE LIMITED",
+          cases: 1,
+          risk: "Average Risk",
+        },
+        {
+          name: "GURDEEP SINGH",
+          dl: "UP22-20100007278",
+          prov: "Not Available",
+          cases: 1,
+          risk: "Low Risk",
+        },
+      ];
+      // ─── OUT DL Mismatch (driver licence at exit ≠ licence at entry) ───
+      const DL_MISMATCH = [
+        {
+          inAt: "25 Apr · 08:04",
+          outAt: "25 Apr · 19:42",
+          name: "NAVAPPAN K",
+          inDL: "TN32-19990001100",
+          outDL: "TN59-20080014673",
+        },
+        {
+          inAt: "25 Apr · 07:08",
+          outAt: "25 Apr · 19:43",
+          name: "K PANDURANGAN",
+          inDL: "TN21-19980004005",
+          outDL: "TN59-20080014673",
+        },
+        {
+          inAt: "25 Apr · 06:58",
+          outAt: "25 Apr · 19:22",
+          name: "SUBRAMANIAN R",
+          inDL: "TN45-19810002695",
+          outDL: "TN28-19960001120",
+        },
+        {
+          inAt: "24 Apr · 21:59",
+          outAt: "25 Apr · 19:44",
+          name: "NAGARAJU S",
+          inDL: "TN28-20080005447",
+          outDL: "TN45-Z20150000713",
+        },
+        {
+          inAt: "24 Apr · 15:44",
+          outAt: "25 Apr · 19:42",
+          name: "ASHOKKUMAR U",
+          inDL: "TN27-Z20070000235",
+          outDL: "TN45-Z20100001420",
+        },
+        {
+          inAt: "24 Apr · 12:34",
+          outAt: "25 Apr · 19:32",
+          name: "ADIKESAVALUM",
+          inDL: "TN31-19900002886",
+          outDL: "TN48-Z20160002630",
+        },
+        {
+          inAt: "24 Apr · 07:27",
+          outAt: "25 Apr · 03:21",
+          name: "SATHISH B",
+          inDL: "TN31-20050007502",
+          outDL: "TN31-20050000750",
+        },
+        {
+          inAt: "22 Apr · 10:31",
+          outAt: "22 Apr · 22:11",
+          name: "SIVAKUMAR M",
+          inDL: "TN47-20020000074",
+          outDL: "TN55-19970001522",
+        },
+        {
+          inAt: "21 Apr · 18:01",
+          outAt: "22 Apr · 12:58",
+          name: "PANDI S",
+          inDL: "TN76-20100009560",
+          outDL: "TN72-20100009560",
+        },
+        {
+          inAt: "21 Apr · 14:05",
+          outAt: "21 Apr · 15:14",
+          name: "RAJESH G",
+          inDL: "TN48-20060006352",
+          outDL: "TN50-20100002633",
+        },
+        {
+          inAt: "21 Apr · 13:59",
+          outAt: "21 Apr · 19:39",
+          name: "RAVI E",
+          inDL: "TN31-Z20160002251",
+          outDL: "TN31-Z20010006022",
+        },
+        {
+          inAt: "20 Apr · 14:25",
+          outAt: "20 Apr · 20:23",
+          name: "MASILAMANI D",
+          inDL: "TN37-20020005569",
+          outDL: "TN67-19890000590",
+        },
+        {
+          inAt: "18 Apr · 09:24",
+          outAt: "18 Apr · 13:06",
+          name: "ANURAG N R",
+          inDL: "KL08-20230003725",
+          outDL: "TN33-20160000466",
+        },
+        {
+          inAt: "17 Apr · 16:43",
+          outAt: "21 Apr · 05:46",
+          name: "BHUVANESWARAN K",
+          inDL: "TN81-20140006017",
+          outDL: "TN45-Z20180006815",
+        },
+        {
+          inAt: "17 Apr · 10:16",
+          outAt: "22 Apr · 08:48",
+          name: "PRABAKARAN V",
+          inDL: "TN50-20100002633",
+          outDL: "TN55-20070002654",
+        },
+        {
+          inAt: "16 Apr · 10:56",
+          outAt: "24 Apr · 15:16",
+          name: "RAVICHANDRAN P",
+          inDL: "TN45-20000007043",
+          outDL: "TN60-20020001975",
+        },
+        {
+          inAt: "16 Apr · 10:53",
+          outAt: "17 Apr · 12:58",
+          name: "NANDHA KUMAR S",
+          inDL: "TN45-20210007722",
+          outDL: "TN45-19920002118",
+        },
+        {
+          inAt: "16 Apr · 10:48",
+          outAt: "16 Apr · 22:07",
+          name: "SURIYA S",
+          inDL: "TN31-20180001633",
+          outDL: "TN45-20100001420",
+        },
+        {
+          inAt: "15 Apr · 17:36",
+          outAt: "16 Apr · 07:33",
+          name: "KALAISELVAN V",
+          inDL: "TN45-20090006134",
+          outDL: "TN60-20020001975",
+        },
+      ];
+      const DRIVER_REGULARS = [
+        { name: "—", dl: "TN4519830003330", prov: "LSG & Co", visits: 6 },
+        {
+          name: "—",
+          dl: "TN2420150001011",
+          prov: "AMMAN TRANSPORTS",
+          visits: 3,
+        },
+        {
+          name: "—",
+          dl: "TN6020020001975",
+          prov: "AMMAN TRANSPORTS",
+          visits: 3,
+        },
+        { name: "—", dl: "TN0520010015899", prov: "LSG & Co", visits: 2 },
+        {
+          name: "—",
+          dl: "TN25Y20150000522",
+          prov: "VARUN LOGISTICS",
+          visits: 2,
+        },
+        { name: "—", dl: "TN27Z20040002620", prov: "LSG & Co", visits: 2 },
+        { name: "—", dl: "TN45Z20080000190", prov: "LSG & Co", visits: 2 },
+        {
+          name: "—",
+          dl: "TN45Z20100001420",
+          prov: "AMMAN TRANSPORTS",
+          visits: 2,
+        },
+        { name: "—", dl: "TN45Z20140001616", prov: "LSG & Co", visits: 2 },
+        { name: "—", dl: "TN45Z20140004724", prov: "LSG & Co", visits: 2 },
+        { name: "—", dl: "TN45Z20170004852", prov: "LSG & Co", visits: 2 },
+        {
+          name: "—",
+          dl: "TN4920060000584",
+          prov: "VARUN LOGISTICS",
+          visits: 2,
+        },
+        { name: "—", dl: "TN49Z19940002301", prov: "LSG & Co", visits: 2 },
+        { name: "—", dl: "TN50Z20210003091", prov: "LSG & Co", visits: 2 },
+        {
+          name: "—",
+          dl: "TN5519970001522",
+          prov: "VARUN LOGISTICS",
+          visits: 2,
+        },
+      ];
+      // Order kept volume-desc so chartProviderMix can take .slice(0,5) for "Top 5 by volume".
+      // flagged / nonTransportDL / expiredDL / invalidLic sourced from fraudcheck.ai PDF.
+      const PROVIDERS = [
+        {
+          name: "LSG & Co",
+          drivers: 199,
+          total: 217,
+          flagged: 15,
+          nonTransportDL: 4,
+          expiredDL: 2,
+          invalidLic: 8,
+        },
+        {
+          name: "AMMAN TRANSPORTS",
+          drivers: 50,
+          total: 55,
+          flagged: 6,
+          nonTransportDL: 1,
+          expiredDL: 0,
+          invalidLic: 1,
+        },
+        {
+          name: "A L TRANS PRIVATE LIMITED",
+          drivers: 50,
+          total: 55,
+          flagged: 2,
+          nonTransportDL: 1,
+          expiredDL: 0,
+          invalidLic: 0,
+        },
+        {
+          name: "VARUN LOGISTICS",
+          drivers: 53,
+          total: 54,
+          flagged: 9,
+          nonTransportDL: 0,
+          expiredDL: 0,
+          invalidLic: 5,
+        },
+        {
+          name: "VAYUDOOT ROAD CARRIERS PVT LTD",
+          drivers: 29,
+          total: 29,
+          flagged: 1,
+          nonTransportDL: 0,
+          expiredDL: 1,
+          invalidLic: 1,
+        },
+        {
+          name: "KAPOOR DIESELS GARAGE PVT LTD",
+          drivers: 17,
+          total: 17,
+          flagged: 1,
+          nonTransportDL: 0,
+          expiredDL: 0,
+          invalidLic: 0,
+        },
+        {
+          name: "COSMO CARRYING PRIVATE LIMITED",
+          drivers: 11,
+          total: 11,
+          flagged: 0,
+          nonTransportDL: 0,
+          expiredDL: 1,
+          invalidLic: 1,
+        },
+        {
+          name: "TIRUPATI LOGISTICS PVT. LTD",
+          drivers: 7,
+          total: 7,
+          flagged: 2,
+          nonTransportDL: 0,
+          expiredDL: 0,
+          invalidLic: 0,
+        },
+        {
+          name: "JSM LOGISTICS PVT. LTD.",
+          drivers: 5,
+          total: 5,
+          flagged: 2,
+          nonTransportDL: 0,
+          expiredDL: 0,
+          invalidLic: 0,
+        },
+        {
+          name: "DELHIVERY LIMITED",
+          drivers: 4,
+          total: 4,
+          flagged: 0,
+          nonTransportDL: 0,
+          expiredDL: 1,
+          invalidLic: 0,
+        },
+        {
+          name: "SOUTHERN CARGO CARRIERS (INDIA)",
+          drivers: 4,
+          total: 4,
+          flagged: 1,
+          nonTransportDL: 0,
+          expiredDL: 0,
+          invalidLic: 0,
+        },
+      ];
+
+      const AI_INSIGHTS = [
+        {
+          tag: "Compliance",
+          accent: "red",
+          text: "<b>1.1%</b> of presented DLs — <b>6 of 546 entries</b> — were expired at the time of gate-in (based on DL validity dates present in the dataset).",
+        },
+        {
+          tag: "Risk",
+          accent: "red",
+          text: "No explicit court / background-risk indicators are present in this dataset export; risk KPIs are omitted from computation.",
+        },
+        {
+          tag: "Data Gap",
+          accent: "amber",
+          text: "<b>100.0%</b> of inbound entries — <b>546 of 546</b> — have no contractor / provider attribution.",
+        },
+        {
+          tag: "Visibility",
+          accent: "emerald",
+          text: "Structured real-time exits reached <b>40.5%</b> (<b>221 of 546</b> entries).",
+        },
+      ];
+
+      const CAPABILITIES = [
+        {
+          t: "DL Scan → Auto-Fetch · No Manual Entry",
+          d: "Guard scans the DL once — name, number, expiry, photo, DL category and central-registry status are all fetched automatically. Zero typing at the gate, full audit trail, DL verified in one step.",
+          icon: "qr",
+          featured: true,
+        },
+        {
+          t: "Real-Time Gate Control",
+          d: "Every inbound / outbound / visitor event captured live and indexed by warehouse in one console — guard-friendly 4-button flow on a shared PC.",
+          icon: "gate",
+        },
+        {
+          t: "Driver & Vehicle Verification",
+          d: "DL, background, RC, insurance, fitness and PUC checked server-side at every gate — no guard override without a reason logged to audit.",
+          icon: "shield",
+        },
+        {
+          t: "Face Compare on Exit",
+          d: "Entry vs exit face matched by Vision AI — catches driver substitution and unauthorised hand-offs before the truck clears the gate.",
+          icon: "face",
+        },
+        {
+          t: "Invoice + PIN Digital POD",
+          d: "No dealer app. Dealer receives an SMS PIN tied to the invoice, confirms delivery from any phone. Paper POD disputes (3–7 days) close in under 4 minutes.",
+          icon: "qr",
+        },
+        {
+          t: "Compliance Clock · Expiry Radar",
+          d: "Every DL, insurance, fitness and PUC tracked against 30/60/90-day buckets — CSO sees amber drivers before they become red.",
+          icon: "bell",
+        },
+        {
+          t: "Pan-India CSO Command View",
+          d: "Live compliance clock, trip feed, critical alerts — one screen across all 37 warehouses with drill-down to a specific gate.",
+          icon: "globe",
+        },
+        {
+          t: "Incident & SLA Engine",
+          d: "Critical alerts auto-escalate; SLA-breach surfaces to CSO; immutable audit trail preserved even after resolution.",
+          icon: "bell",
+        },
+        {
+          t: "Background Screening Pipeline",
+          d: "DL verification + criminal-record search integrated with third-party vendor. 49 drivers with court records surfaced by POC using this very pipeline.",
+          icon: "shield",
+        },
+        {
+          t: "MIS &amp; Compliance Reports",
+          d: "Board-grade CSV / PDF exports · trip-level, driver-level, warehouse-level · scheduled or on-demand · filter by region, contractor, severity.",
+          icon: "layers",
+        },
+        {
+          t: "Scale-Ready Architecture",
+          d: "Multi-tenant · role-based · append-only audit · designed for 100+ warehouses without re-architecture. Same code path for 1 or 50 DCs.",
+          icon: "layers",
+        },
+        {
+          t: "Plug-in Integrations",
+          d: "Trip feed swaps from manual → SuperProcure with an env flag · SAP hook-ready · MSG91 SMS · Google Vision · all pre-wired.",
+          icon: "plug",
+        },
+        {
+          t: "Visitor &amp; Contractor Pass",
+          d: "Same 4-button flow handles visitors, contractors, auditors and maintenance crews — photo, ID, host and expected-exit captured in under 30 seconds.",
+          icon: "gate",
+        },
+        {
+          t: "Offline-Resilient Gate Console",
+          d: "Guard screen keeps working through patchy connectivity — events queue locally and sync the moment the link returns, with zero data loss.",
+          icon: "plug",
+        },
+        {
+          t: "AI-Powered Operational Insights",
+          d: "Delay clusters, compliance drift, anomaly detection, peak-hour load — surfaced weekly to operations leadership as short, action-sized insights.",
+          icon: "brain",
+        },
+      ];
+
+      const ICONS = {
+        gate: '<path d="M3 21V7l9-4 9 4v14M3 21h18M9 21v-8h6v8"/>',
+        shield:
+          '<path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/>',
+        face: '<circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1"/><circle cx="15" cy="10" r="1"/><path d="M8 15s1.5 2 4 2 4-2 4-2"/>',
+        qr: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 19v2h4v-4M14 19h2"/>',
+        globe:
+          '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/>',
+        bell: '<path d="M18 16V11a6 6 0 10-12 0v5l-2 3h16zM10 21a2 2 0 004 0"/>',
+        layers: '<path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17l9 5 9-5"/>',
+        plug: '<path d="M9 2v4M15 2v4M5 10h14l-1 11H6zM10 14v4M14 14v4"/>',
+        brain:
+          '<path d="M12 2l2.4 5.4L20 10l-5.6 2.6L12 18l-2.4-5.4L4 10l5.6-2.6z"/>',
+      };
+
+      /* ─────────────────────────── TAB ROUTER ─────────────────────────── */
+      function showTab(id) {
+        document
+          .querySelectorAll(".section")
+          .forEach((s) => s.classList.toggle("active", s.id === id));
+        document
+          .querySelectorAll(".tab-btn")
+          .forEach((b) =>
+            b.setAttribute(
+              "data-active",
+              b.dataset.tab === id ? "true" : "false",
+            ),
+          );
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        history.replaceState(null, "", "#" + id);
+        runAnimationsFor(id);
+      }
+      document
+        .querySelectorAll(".tab-btn")
+        .forEach((b) =>
+          b.addEventListener("click", () => showTab(b.dataset.tab)),
+        );
+
+      /* ─────────────────────────── CLOCK ─────────────────────────── */
+      function tickClock() {
+        const el = document.getElementById("clock");
+        if (!el) return;
+        const d = new Date();
+        const pad = (n) => n.toString().padStart(2, "0");
+        el.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} IST`;
+      }
+      setInterval(tickClock, 1000);
+      tickClock();
+
+      /* ─────────────────────────── COUNT-UP ─────────────────────────── */
+      function fmt(v, decimals) {
+        return decimals
+          ? v.toFixed(decimals)
+          : Math.round(v).toLocaleString("en-IN");
+      }
+      function animateCount(el) {
+        if (el.dataset.done === "1") return;
+        const target = parseFloat(el.dataset.count);
+        const decimals = (el.dataset.count.split(".")[1] || "").length;
+        // set final value immediately so the number always displays, even if rAF is throttled
+        el.textContent = fmt(target, decimals);
+        el.dataset.done = "1";
+        // visual tween on top — interpolate from 0 to target using a setInterval fallback
+        const dur = 1100;
+        const start = Date.now();
+        const iv = setInterval(() => {
+          const p = Math.min((Date.now() - start) / dur, 1);
+          const eased = 1 - Math.pow(1 - p, 3);
+          el.textContent = fmt(target * eased, decimals);
+          if (p >= 1) {
+            clearInterval(iv);
+            el.textContent = fmt(target, decimals);
+          }
+        }, 33);
+      }
+
+      /* Warehouse Overview is now static markup — Trichy DC featured card + scale-out tile */
+
+      /* ─────────────────────────── ALERTS FEED ─────────────────────────── */
+      const sevMap = {
+        critical: { chip: "red", glow: "alert-glow", label: "CRITICAL" },
+        high: { chip: "amber", glow: "", label: "HIGH" },
+        medium: { chip: "", glow: "", label: "MEDIUM" },
+      };
+      function renderAlerts() {
+        const list = document.getElementById("alertList");
+        list.innerHTML = ALERTS.map((a) => {
+          const s = sevMap[a.sev];
+          return `
+    <div class="glass rounded-2xl p-5 ${s.glow} card-hover">
+      <div class="flex flex-wrap items-start gap-4">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+             style="background:${a.sev === "critical" ? "rgba(239,68,68,.15)" : a.sev === "high" ? "rgba(245,158,11,.15)" : "rgba(234,179,8,.12)"};">
+          <svg class="w-5 h-5" style="color:${a.sev === "critical" ? "#ef4444" : a.sev === "high" ? "#f59e0b" : "#eab308"}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3l9 16H3zM12 10v4M12 17h.01"/>
+          </svg>
+        </div>
+        <div class="flex-1 min-w-[240px]">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="chip ${s.chip}">${s.label}</span>
+            <span class="font-semibold text-sm">${a.type}</span>
+            <span class="text-xs text-slate-500 ml-auto">${a.time}</span>
+          </div>
+          <div class="mt-2 text-sm text-slate-300">${a.note}</div>
+          <div class="mt-2 flex flex-wrap gap-2 text-xs">
+            <span class="kbd">${a.vehicle}</span>
+            <span class="text-slate-500">·</span>
+            <span class="text-slate-400">${a.driver}</span>
+          </div>
+        </div>
+        <div class="text-xs text-emerald-300 shrink-0 md:self-center">
+          <span class="chip green badge-dot">${a.outcome}</span>
+        </div>
+      </div>
+    </div>
+    `;
+        }).join("");
+      }
+
+      /* ─────────────────────────── AI INSIGHTS ─────────────────────────── */
+      function renderAI() {
+        const grid = document.getElementById("aiGrid");
+        const accentMap = {
+          amber: {
+            border: "border-amber-400/20",
+            text: "text-amber-300",
+            bg: "bg-amber-500/10",
+          },
+          emerald: {
+            border: "border-emerald-400/20",
+            text: "text-emerald-300",
+            bg: "bg-emerald-500/10",
+          },
+          red: {
+            border: "border-red-400/20",
+            text: "text-red-300",
+            bg: "bg-red-500/10",
+          },
+          brand: {
+            border: "border-brand-400/20",
+            text: "text-brand-300",
+            bg: "bg-brand-500/10",
+          },
+        };
+        grid.innerHTML = AI_INSIGHTS.map((i, idx) => {
+          const a = accentMap[i.accent];
+          return `
+      <div class="glass rounded-2xl p-5 card-hover border ${a.border}">
+        <div class="flex items-center justify-between mb-3">
+          <span class="chip ${i.accent === "brand" ? "brand" : i.accent === "emerald" ? "green" : i.accent === "amber" ? "amber" : "red"}">${i.tag}</span>
+          <span class="text-[10px] font-mono text-slate-500">AI · #${String(idx + 1).padStart(2, "0")}</span>
+        </div>
+        <div class="text-sm leading-relaxed">${i.text}</div>
+      </div>
+    `;
+        }).join("");
+      }
+
+      /* ─────────────────────────── DRIVER INTELLIGENCE RENDER ─────────────────────────── */
+      function renderDriverIntel() {
+        const hr = document.getElementById("driverHighRisk");
+        if (hr) {
+          const riskChip = (r) =>
+            r === "Very High Risk"
+              ? "red"
+              : r === "High Risk"
+                ? "red"
+                : r === "Average Risk"
+                  ? "amber"
+                  : "green";
+          const riskWeight = (r) =>
+            r === "Very High Risk"
+              ? 4
+              : r === "High Risk"
+                ? 3
+                : r === "Average Risk"
+                  ? 2
+                  : 1;
+          const top10 = [...DRIVER_HIGH_RISK]
+            .sort(
+              (a, b) =>
+                b.cases - a.cases || riskWeight(b.risk) - riskWeight(a.risk),
+            )
+            .slice(0, 10);
+          hr.innerHTML = top10
+            .map(
+              (d) => `
+      <tr class="hover:bg-white/[.02]">
+        <td class="py-2 pr-2 font-sans"><span class="text-white">${d.name}</span></td>
+        <td class="py-2 pr-2 text-slate-300">${d.dl}</td>
+        <td class="py-2 pr-2 font-sans text-slate-300 text-[11px]">${d.prov}</td>
+        <td class="py-2 px-2 text-right"><span class="chip red text-[10px]">${d.cases} ${d.cases === 1 ? "case" : "cases"}</span></td>
+        <td class="py-2 pl-2 text-right"><span class="chip ${riskChip(d.risk)} text-[10px]">${d.risk}</span></td>
+      </tr>`,
+            )
+            .join("");
+        }
+        const hp = document.getElementById("dlMismatch");
+        if (hp) {
+          hp.innerHTML = DL_MISMATCH.map(
+            (d) => `
+      <tr class="hover:bg-white/[.02]">
+        <td class="py-2 pr-2 font-sans text-slate-300 text-[11px] whitespace-nowrap">${d.inAt}</td>
+        <td class="py-2 pr-2 font-sans text-slate-300 text-[11px] whitespace-nowrap">${d.outAt}</td>
+        <td class="py-2 pr-2 font-sans text-white">${d.name}</td>
+        <td class="py-2 pr-2 text-slate-300">${d.inDL}</td>
+        <td class="py-2 pl-2"><span class="chip amber text-[10px]">${d.outDL}</span></td>
+      </tr>`,
+          ).join("");
+        }
+        const rg = document.getElementById("driverRegulars");
+        if (rg) {
+          rg.innerHTML = DRIVER_REGULARS.map(
+            (d, i) => `
+      <tr class="hover:bg-white/[.02]">
+        <td class="py-2 pr-2 text-slate-500">${i + 1}</td>
+        <td class="py-2 pr-2 font-sans text-white">${d.name}</td>
+        <td class="py-2 pr-2 text-slate-300">${maskDL(d.dl)}</td>
+        <td class="py-2 pr-2 font-sans text-slate-300 text-[11px]">${d.prov}</td>
+        <td class="py-2 pl-2 text-right"><span class="chip green text-[10px]">${d.visits}</span></td>
+      </tr>`,
+          ).join("");
+        }
+      }
+
+      /* ─────────────────────────── NO-VEHICLE 76 LIST ─────────────────────────── */
+      function maskDL(dl) {
+        if (!dl || dl === "(blank)")
+          return '<span class="text-slate-500">(blank)</span>';
+        if (dl.length <= 6) return dl;
+        const tail = dl.slice(-4);
+        const head = dl.slice(0, 5); // keep state-series prefix like "TN45-"
+        return `${head}<span class="text-slate-600">••••••••</span>${tail}`;
+      }
+      /* (no-vehicle list removed per product direction) */
+
+      /* ─────────────────────────── PROVIDERS TABLE + CHART ─────────────────────────── */
+      function totalFlags(p) {
+        return (
+          (p.flagged || 0) +
+          (p.nonTransportDL || 0) +
+          (p.expiredDL || 0) +
+          (p.invalidLic || 0)
+        );
+      }
+      function riskForProvider(p) {
+        const t = totalFlags(p);
+        if (t >= 20) return { label: "Critical", cls: "red" };
+        if (t >= 10) return { label: "High", cls: "red" };
+        if (t >= 3) return { label: "Medium", cls: "amber" };
+        if (t >= 1) return { label: "Low", cls: "amber" };
+        return { label: "Clean", cls: "green" };
+      }
+      function renderProviders() {
+        const tbody = document.getElementById("providerRows");
+        if (!tbody) return;
+        const ranked = [...PROVIDERS]
+          .sort(
+            (a, b) =>
+              totalFlags(b) - totalFlags(a) || a.name.localeCompare(b.name),
+          )
+          .slice(0, 10);
+        tbody.innerHTML = ranked
+          .map((p) => {
+            const risk = riskForProvider(p);
+            const t = totalFlags(p);
+            return `
+    <tr class="hover:bg-white/[.02] transition">
+      <td class="py-2 pr-3">
+        <div class="font-medium text-[13px]">${p.name}</div>
+        <div class="text-[10px] text-slate-500">Trichy DC · 10–23 Apr</div>
+      </td>
+      <td class="py-2 px-2 text-right font-mono ${p.flagged > 0 ? "text-red-300" : "text-slate-400"}">${p.flagged}</td>
+      <td class="py-2 px-2 text-right font-mono ${p.nonTransportDL > 0 ? "text-amber-300" : "text-slate-400"}">${p.nonTransportDL}</td>
+      <td class="py-2 px-2 text-right font-mono ${p.expiredDL > 0 ? "text-amber-300" : "text-slate-400"}">${p.expiredDL}</td>
+      <td class="py-2 px-2 text-right font-mono ${p.invalidLic > 0 ? "text-amber-300" : "text-slate-400"}">${p.invalidLic}</td>
+      <td class="py-2 px-2 text-right font-mono ${t >= 10 ? "text-red-300" : t >= 3 ? "text-amber-300" : "text-slate-300"}">${t}</td>
+      <td class="py-2 pl-2 text-right"><span class="chip ${risk.cls} text-[10px]">${risk.label}</span></td>
+    </tr>
+    `;
+          })
+          .join("");
+      }
+      function makeChartProviderMix() {
+        if (charts.provMix) charts.provMix.destroy();
+        const top5 = PROVIDERS.slice(0, 5);
+        const top5Sum = top5.reduce((s, p) => s + (p.total || 0), 0);
+        const others = PROVIDERS.slice(5).reduce(
+          (s, p) => s + (p.total || 0),
+          0,
+        );
+        // derive untagged from totals instead of hardcoding
+        const total = document.querySelector('[data-count="546"]')
+          ? 546
+          : top5Sum + others;
+        const tagged = top5Sum + others;
+        const untagged = Math.max(0, total - tagged);
+        charts.provMix = new Chart(
+          document.getElementById("chartProviderMix"),
+          {
+            type: "doughnut",
+            data: {
+              labels: [
+                ...top5.map((p) => p.name),
+                "Other providers",
+                `Untagged (${untagged})`,
+              ],
+              datasets: [
+                {
+                  data: [...top5.map((p) => p.total), others, untagged],
+                  backgroundColor: [
+                    "#10b981",
+                    "#3d94ff",
+                    "#f59e0b",
+                    "#a78bfa",
+                    "#f472b6",
+                    "#64748b",
+                    "rgba(239,68,68,.7)",
+                  ],
+                  borderColor: "rgba(0,0,0,0)",
+                  borderWidth: 4,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              cutout: "58%",
+              plugins: {
+                legend: {
+                  position: "bottom",
+                  labels: {
+                    usePointStyle: true,
+                    boxWidth: 8,
+                    font: { size: 10 },
+                  },
+                },
+                tooltip: {
+                  callbacks: { label: (c) => `${c.label}: ${c.raw} entries` },
+                },
+              },
+            },
+          },
+        );
+      }
+
+      /* ─────────────────────────── CAPABILITIES ─────────────────────────── */
+      function renderCapabilities() {
+        const grid = document.getElementById("capGrid");
+        grid.innerHTML = CAPABILITIES.map((c) => {
+          const featured = c.featured;
+          const cls = featured
+            ? "glass-strong rounded-2xl p-6 card-hover border border-emerald-500/30 shadow-glow-green md:col-span-2 lg:col-span-3 relative overflow-hidden"
+            : "glass rounded-2xl p-5 card-hover";
+          const iconBox = featured
+            ? "w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center"
+            : "w-10 h-10 rounded-xl bg-brand-500/15 flex items-center justify-center";
+          const iconCls = featured
+            ? "w-6 h-6 text-emerald-300"
+            : "w-5 h-5 text-brand-300";
+          const extra = featured
+            ? `
+      <div class="absolute -right-8 -top-8 w-48 h-48 rounded-full bg-emerald-500/10 blur-3xl"></div>
+      <div class="relative flex gap-5 items-start flex-wrap">
+        <div class="${iconBox}">
+          <svg class="${iconCls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${ICONS[c.icon]}</svg>
+        </div>
+        <div class="flex-1 min-w-[280px]">
+          <div class="chip green mb-2"><span class="pulse-dot"></span>Flagship · Reduces gate time by ~70%</div>
+          <div class="font-semibold text-lg">${c.t}</div>
+          <div class="mt-1 text-sm text-slate-300 leading-relaxed">${c.d}</div>
+          <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+            <div class="glass rounded-lg p-3">
+              <div class="text-[10px] uppercase tracking-wider text-slate-400">Avg entry time</div>
+              <div class="mt-0.5 font-semibold"><span class="text-red-300 line-through">~4 min</span> → <span class="text-emerald-300">~75 sec</span></div>
+            </div>
+            <div class="glass rounded-lg p-3">
+              <div class="text-[10px] uppercase tracking-wider text-slate-400">Manual fields</div>
+              <div class="mt-0.5 font-semibold"><span class="text-red-300 line-through">11</span> → <span class="text-emerald-300">0</span></div>
+            </div>
+            <div class="glass rounded-lg p-3">
+              <div class="text-[10px] uppercase tracking-wider text-slate-400">DL verified in</div>
+              <div class="mt-0.5 font-semibold text-emerald-300">One step</div>
+            </div>
+            <div class="glass rounded-lg p-3">
+              <div class="text-[10px] uppercase tracking-wider text-slate-400">Audit trail</div>
+              <div class="mt-0.5 font-semibold text-emerald-300">100% tamper-proof</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `
+            : `
+      <div class="${iconBox}">
+        <svg class="${iconCls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${ICONS[c.icon]}</svg>
+      </div>
+      <div class="mt-4 font-semibold">${c.t}</div>
+      <div class="mt-1 text-sm text-slate-400 leading-relaxed">${c.d}</div>
+    `;
+          return `<div class="${cls}">${extra}</div>`;
+        }).join("");
+      }
+
+      /* ─────────────────────────── CHARTS ─────────────────────────── */
+      Chart.defaults.font.family = "Inter, system-ui, sans-serif";
+      Chart.defaults.color = "#94a3b8";
+      Chart.defaults.borderColor = "rgba(255,255,255,.06)";
+
+      // Real entry counts per day from migration-full-table.json (10 Apr – 23 Apr 2026)
+      // Days 22–23 have 0 entries in the current source (POC still active)
+      const DAYS = [
+        "10 Apr",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "20",
+        "21",
+        "22",
+        "23 Apr",
+      ];
+      const ENTRIES = [
+        94, 83, 18, 59, 24, 121, 112, 141, 119, 45, 101, 84, 0, 0,
+      ];
+      const EXITS = [74, 71, 14, 46, 20, 106, 95, 126, 98, 37, 86, 78, 0, 0];
+
+      function makeChartEntryExit() {
+        if (charts.entry) charts.entry.destroy();
+        const ctx = document.getElementById("chartEntryExit");
+        const g1 = ctx.getContext("2d").createLinearGradient(0, 0, 0, 200);
+        g1.addColorStop(0, "rgba(61,148,255,.45)");
+        g1.addColorStop(1, "rgba(61,148,255,0)");
+        const g2 = ctx.getContext("2d").createLinearGradient(0, 0, 0, 200);
+        g2.addColorStop(0, "rgba(16,185,129,.35)");
+        g2.addColorStop(1, "rgba(16,185,129,0)");
+        charts.entry = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: DAYS,
+            datasets: [
+              {
+                label: "Entries",
+                data: ENTRIES,
+                borderColor: "#3d94ff",
+                backgroundColor: g1,
+                tension: 0.4,
+                fill: true,
+                borderWidth: 2,
+                pointRadius: 0,
+              },
+              {
+                label: "Exits",
+                data: EXITS,
+                borderColor: "#10b981",
+                backgroundColor: g2,
+                tension: 0.4,
+                fill: true,
+                borderWidth: 2,
+                pointRadius: 0,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                position: "bottom",
+                labels: { usePointStyle: true, boxWidth: 8 },
+              },
+            },
+            scales: {
+              x: { grid: { display: false } },
+              y: { grid: { color: "rgba(255,255,255,.04)" } },
+            },
+          },
+        });
+      }
+      function makeChartDelay() {
+        if (charts.delay) charts.delay.destroy(); // Based on scripts/in-out-dwell-bounds.csv (221 out-date records)
+        // 192 records had non-negative dwell bounds and were bucketed.
+        charts.delay = new Chart(document.getElementById("chartDelay"), {
+          type: "doughnut",
+          data: {
+            labels: ["< 1 h", "1–4 h", "4–8 h", "8–12 h", "> 12 h"],
+            datasets: [
+              {
+                data: [4, 28, 11, 11, 138], // totals to 192
+                backgroundColor: [
+                  "#10B981",
+                  "#3D94FF",
+                  "#F59E0B",
+                  "#A78BFA",
+                  "#EF4444",
+                ],
+                borderColor: "rgba(0,0,0,0)",
+                borderWidth: 4,
+                hoverOffset: 6,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            cutout: "62%",
+            plugins: {
+              legend: {
+                position: "bottom",
+                labels: { usePointStyle: true, boxWidth: 8 },
+              },
+            },
+          },
+        });
+      }
+      function makeChartTrend() {
+        if (charts.trend) charts.trend.destroy();
+        const ctx = document.getElementById("chartTrend");
+        const g = ctx.getContext("2d").createLinearGradient(0, 0, 0, 200);
+        g.addColorStop(0, "rgba(16,185,129,.35)");
+        g.addColorStop(1, "rgba(16,185,129,0)");
+        charts.trend = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: DAYS,
+            datasets: [
+              {
+                label: "Efficiency %",
+                data: [61, 64, 66, 68, 71, 74, 77, 97, 82, 86, 89, 92],
+                borderColor: "#10b981",
+                backgroundColor: g,
+                tension: 0.4,
+                fill: true,
+                borderWidth: 2,
+                pointRadius: 0,
+              },
+              {
+                label: "Violations",
+                data: [22, 18, 21, 15, 14, 12, 11, 9, 8, 7, 6, 7],
+                borderColor: "#ef4444",
+                backgroundColor: "transparent",
+                tension: 0.4,
+                borderWidth: 2,
+                pointRadius: 0,
+                borderDash: [4, 4],
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                position: "bottom",
+                labels: { usePointStyle: true, boxWidth: 8 },
+              },
+            },
+            scales: {
+              x: { grid: { display: false } },
+              y: { grid: { color: "rgba(255,255,255,.04)" } },
+            },
+          },
+        });
+      }
+      function makeChartAlertDist() {
+        if (charts.alertDist) charts.alertDist.destroy();
+        charts.alertDist = new Chart(
+          document.getElementById("chartAlertDist"),
+          {
+            type: "polarArea",
+            data: {
+              labels: [
+                "DL Invalid (32)",
+                "DL Expired (7)",
+                "Court Records (53)",
+                "High-Risk Flagged (53)",
+                "Contractor Missing (97)",
+              ],
+              datasets: [
+                {
+                  data: [32, 7, 53, 53, 97],
+                  backgroundColor: [
+                    "rgba(239,68,68,.55)",
+                    "rgba(245,158,11,.55)",
+                    "rgba(234,179,8,.55)",
+                    "rgba(236,72,153,.5)",
+                    "rgba(61,148,255,.5)",
+                  ],
+                  borderColor: "rgba(255,255,255,.12)",
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                legend: {
+                  position: "bottom",
+                  labels: {
+                    usePointStyle: true,
+                    boxWidth: 8,
+                    font: { size: 10 },
+                  },
+                },
+              },
+              scales: {
+                r: {
+                  grid: { color: "rgba(255,255,255,.05)" },
+                  ticks: { display: false },
+                },
+              },
+            },
+          },
+        );
+      }
+      function makeChartWh() {
+        if (charts.wh) charts.wh.destroy();
+        charts.wh = new Chart(document.getElementById("chartWh"), {
+          type: "bar",
+          data: {
+            labels: [
+              "DL Validity",
+              "Criminal BG Coverage",
+              "Vehicle Docs",
+              "Contractor Tagging",
+              "Exit Capture",
+              "Face-Match Ready",
+            ],
+            datasets: [
+              {
+                label: "Trichy POC",
+                data: [85, 95, 88, 81, 85, 92],
+                backgroundColor: "rgba(61,148,255,.55)",
+                borderRadius: 8,
+                borderSkipped: false,
+                barThickness: 22,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                position: "bottom",
+                labels: { usePointStyle: true, boxWidth: 8 },
+              },
+            },
+            scales: {
+              x: { grid: { display: false } },
+              y: {
+                grid: { color: "rgba(255,255,255,.04)" },
+                beginAtZero: true,
+                max: 100,
+                ticks: { callback: (v) => v + "%" },
+              },
+            },
+          },
+        });
+      }
+      function makeChartCompliance() {
+        if (charts.comp) charts.comp.destroy();
+        charts.comp = new Chart(document.getElementById("chartCompliance"), {
+          type: "doughnut",
+          data: {
+            labels: [
+              "Valid DL (996)",
+              "Invalid DL (32)",
+              "Expired DL (7)",
+              "Other (0)",
+            ],
+            datasets: [
+              {
+                data: [996, 32, 7, 0],
+                backgroundColor: ["#10b981", "#ef4444", "#f59e0b", "#8b5cf6"],
+                borderColor: "rgba(0,0,0,0)",
+                borderWidth: 4,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            cutout: "66%",
+            plugins: { legend: { display: false } },
+          },
+        });
+      }
+      // ROI section intentionally has no charts (text-only).
+
+      /* ─────────────────────────── RUN ANIMATIONS PER SECTION ─────────────────────────── */
+      function runAnimationsFor(id) {
+        const sec = document.getElementById(id);
+        if (!sec) return;
+        sec.querySelectorAll("[data-count]").forEach(animateCount);
+        if (id === "trucks") {
+          makeChartEntryExit();
+          makeChartDelay();
+        }
+        if (id === "providers") {
+          makeChartProviderMix();
+        }
+        if (id === "roi") {
+          /* ROI section is text-only (no charts) */
+        }
+      }
+
+      /* ─────────────────────────── INIT ─────────────────────────── */
+      renderAlerts();
+      renderProviders();
+      renderDriverIntel();
+      renderCapabilities();
+
+      // initial hash routing
+      const initial = (location.hash || "#hero").slice(1);
+      if (document.getElementById(initial)) showTab(initial);
+      else runAnimationsFor("hero");
+
+      // ensure hero counts run on first paint
+      window.addEventListener("load", () => runAnimationsFor("hero"));
+    </script>
+  </body>
+</html>

@@ -1,0 +1,13 @@
+-- Link incidents to the gate event that triggered them so the incident
+-- detail page can surface full entry context: driver photo, DL photo,
+-- vehicle details, service provider, override reason, crime check data.
+--
+-- Nullable FK — incidents raised by other means (manual, alert-only) will
+-- leave this null and the UI simply omits those sections.
+
+ALTER TABLE incidents
+  ADD COLUMN IF NOT EXISTS linked_gate_event_id TEXT REFERENCES gate_events(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS incidents_linked_gate_event_id
+  ON incidents (linked_gate_event_id)
+  WHERE linked_gate_event_id IS NOT NULL;
