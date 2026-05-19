@@ -2,16 +2,11 @@
  * Google Maps clients — Directions API (route discovery) and
  * Geocoding API (reverse geocoding for district / tehsil).
  *
- * Both APIs must be enabled on the project that owns the key.
- * Key resolution: GOOGLE_MAPS_API_KEY, then GOOGLE_CLOUD_VISION_API_KEY
- * as a fallback (same Google Cloud project often shares one key).
+ * Both APIs must be enabled on the project that owns GOOGLE_MAPS_API_KEY.
  */
 
 function googleKey(): string {
-  const key =
-    process.env.GOOGLE_MAPS_API_KEY ||
-    process.env.GOOGLE_CLOUD_VISION_API_KEY ||
-    "";
+  const key = process.env.GOOGLE_MAPS_API_KEY || "";
   if (!key) throw new Error("GOOGLE_MAPS_API_KEY is not set");
   return key;
 }
@@ -34,7 +29,6 @@ function stripHtml(s: string): string {
 /** Pull NH / SH highway references out of free text. */
 function extractHighways(text: string): string[] {
   const found = new Set<string>();
-  // NH 12, NH-12, NH12A, National Highway 44
   const nh = text.matchAll(/\b(?:NH|National Highway)\s*-?\s*(\d+[A-Z]?)\b/gi);
   for (const m of nh) found.add(`NH${m[1].toUpperCase()}`);
   const sh = text.matchAll(/\b(?:SH|State Highway)\s*-?\s*(\d+[A-Z]?)\b/gi);
@@ -58,7 +52,7 @@ interface GDirectionsResponse {
 
 /**
  * Fetch up to 3 alternative routes between two places.
- * `origin` / `destination` can be place names ("Kolkata") or "lat,lng".
+ * `origin` / `destination` can be place names ("Mumbai") or "lat,lng".
  */
 export async function getDirections(
   origin: string,
