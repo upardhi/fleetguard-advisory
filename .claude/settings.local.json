@@ -99,7 +99,12 @@
       "Bash(SUPABASE_DB_URL='postgresql://postgres.iexnandsthtdotgqlahf:znh7zLSt.2axXHd@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode=require' npx tsx -e ' *)",
       "PowerShell(Stop-Process -Id 13916 -Force -ErrorAction SilentlyContinue)",
       "Bash(curl -s -X POST http://localhost:3000/api/auth/v2/login -H 'Content-Type: application/json' -d '{\"email\":\"admin@fleetguard.itc\",\"password\":\"Admin@1234\"}' -c /tmp/fg_cookies.txt -b /tmp/fg_cookies.txt -w '\\\\nSTATUS:%{http_code}')",
-      "Bash(curl -si -b /tmp/fg_cookies.txt http://localhost:3000/api/v2/me)"
+      "Bash(curl -si -b /tmp/fg_cookies.txt http://localhost:3000/api/v2/me)",
+      "Bash(npx playwright *)",
+      "Bash(taskkill /PID 29984 /F)",
+      "Bash(Start-Sleep -Seconds 2)",
+      "Bash(curl -s -b /tmp/cookies.txt http://localhost:3000/api/v2/warehouses)",
+      "Bash(curl -s -b /tmp/cookies.txt \"http://localhost:3000/api/v2/orgs\")"
     ]
   }
 }
