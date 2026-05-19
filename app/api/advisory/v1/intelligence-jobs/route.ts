@@ -3,20 +3,21 @@ import { requireUser } from "@/app/_server/auth/getUser";
 import { db } from "@/app/_server/db/client";
 import { applySecurityHeaders } from "@/app/_server/security/headers";
 
-// POST /api/advisory/v1/watched-routes/[id]/run-intelligence
-// Creates an async intelligence job — processing is handled by the Vercel Cron
-// at /api/cron/run-intelligence (fires every minute).
-// Returns { jobId } immediately; poll /api/advisory/v1/intelligence-jobs/[jobId] for progress.
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+// POST /api/advisory/v1/intelligence-jobs
+// Creates an async intelligence job for a watched corridor.
+// Returns immediately with a jobId — the Vercel Cron picks it up within 60s.
+export async function POST(req: NextRequest) {
   let actor;
   try { actor = await requireUser(req); }
   catch { return applySecurityHeaders(NextResponse.json({ error: "Unauthorized" }, { status: 401 })); }
 
-  const { id: routeId } = await params;
+  const body = await req.json() as { routeId?: string };
+  const { routeId } = body;
+  if (!routeId) {
+    return applySecurityHeaders(NextResponse.json({ error: "routeId required" }, { status: 400 }));
+  }
 
+  // Verify route belongs to this org and is ready
   const [route] = (await db`
     SELECT id, routes_fetched
     FROM   adv_watched_routes
@@ -25,15 +26,15 @@ export async function POST(
   `) as unknown as Array<{ id: string; routes_fetched: boolean }>;
 
   if (!route) {
-    return applySecurityHeaders(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return applySecurityHeaders(NextResponse.json({ error: "Route not found" }, { status: 404 }));
   }
   if (!route.routes_fetched) {
     return applySecurityHeaders(
-      NextResponse.json({ error: "Fetch route segments first" }, { status: 400 }),
+      NextResponse.json({ error: "Fetch route segments first before running intelligence" }, { status: 400 }),
     );
   }
 
-  // Cancel any existing pending/running jobs for this route
+  // Cancel any pending/running jobs for this route (avoid duplicates)
   await db`
     UPDATE adv_intel_jobs
     SET    status = 'cancelled', finished_at = now()
@@ -41,7 +42,7 @@ export async function POST(
       AND  status IN ('pending', 'running')
   `;
 
-  // Count total segments
+  // Count segments
   const [{ count }] = (await db`
     SELECT COUNT(*)::int AS count
     FROM   adv_watched_segments
@@ -50,10 +51,11 @@ export async function POST(
 
   if (count === 0) {
     return applySecurityHeaders(
-      NextResponse.json({ error: "No segments — fetch route first" }, { status: 400 }),
+      NextResponse.json({ error: "No segments found — fetch route first" }, { status: 400 }),
     );
   }
 
+  // Create job
   const jobId = crypto.randomUUID();
   await db`
     INSERT INTO adv_intel_jobs
@@ -63,6 +65,6 @@ export async function POST(
   `;
 
   return applySecurityHeaders(
-    NextResponse.json({ ok: true, jobId, segmentsTotal: count, status: "pending" }, { status: 202 }),
+    NextResponse.json({ jobId, segmentsTotal: count, status: "pending" }, { status: 202 }),
   );
 }

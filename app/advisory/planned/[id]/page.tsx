@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { use } from "react";
 import Link from "next/link";
 import {
@@ -594,10 +594,19 @@ export default function PlannedRouteDetailPage({
   const [segments, setSegments]           = useState<WatchedSegment[]>([]);
   const [loading, setLoading]             = useState(true);
   const [fetchingRoute, setFetchingRoute] = useState(false);
-  const [runningIntel, setRunningIntel]   = useState(false);
   const [actionMsg, setActionMsg]         = useState<string | null>(null);
   const [activeVariant, setActiveVariant] = useState(0);
   const [selectedSeg, setSelectedSeg]     = useState<WatchedSegment | null>(null);
+
+  // Job polling state
+  const [jobId, setJobId]           = useState<string | null>(null);
+  const [jobStatus, setJobStatus]   = useState<string | null>(null);
+  const [jobProgress, setJobProgress] = useState(0);
+  const [jobDone, setJobDone]       = useState(0);
+  const [jobTotal, setJobTotal]     = useState(0);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const runningIntel = jobStatus === "pending" || jobStatus === "running";
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -631,19 +640,58 @@ export default function PlannedRouteDetailPage({
   }
 
   async function handleRunIntelligence() {
-    setRunningIntel(true);
     setActionMsg(null);
-    try {
-      const res = await fetch(`/api/advisory/v1/watched-routes/${id}/run-intelligence`, {
-        method: "POST", credentials: "include",
-      });
-      const data = await res.json() as { ok?: boolean; segmentsChecked?: number; disruptionsFound?: number; error?: string };
-      setActionMsg(res.ok
-        ? `Intelligence complete — ${data.segmentsChecked ?? 0} segments checked, ${data.disruptionsFound ?? 0} disruptions found.`
-        : `Error: ${data.error ?? "Unknown"}`);
-      if (res.ok) await load();
-    } finally { setRunningIntel(false); }
+    setJobStatus("pending");
+    setJobProgress(0);
+    setJobDone(0);
+
+    // Create the async job
+    const res = await fetch(`/api/advisory/v1/watched-routes/${id}/run-intelligence`, {
+      method: "POST", credentials: "include",
+    });
+    const data = await res.json() as { ok?: boolean; jobId?: string; segmentsTotal?: number; error?: string };
+
+    if (!res.ok || !data.jobId) {
+      setJobStatus(null);
+      setActionMsg(`Error: ${data.error ?? "Failed to create job"}`);
+      return;
+    }
+
+    setJobId(data.jobId);
+    setJobTotal(data.segmentsTotal ?? 0);
+    setActionMsg(null);
+
+    // Poll for progress every 4 seconds
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const pr = await fetch(`/api/advisory/v1/intelligence-jobs/${data.jobId}`, { credentials: "include" });
+        const pdata = await pr.json() as {
+          status: string; progress: number;
+          segmentsDone: number; segmentsTotal: number; disruptionsFound: number; error?: string;
+        };
+
+        setJobStatus(pdata.status);
+        setJobProgress(pdata.progress);
+        setJobDone(pdata.segmentsDone);
+        setJobTotal(pdata.segmentsTotal);
+
+        if (pdata.status === "done") {
+          clearInterval(pollRef.current!);
+          pollRef.current = null;
+          setActionMsg(`Intelligence complete — ${pdata.segmentsDone} segments checked, ${pdata.disruptionsFound} disruptions found.`);
+          await load();
+        } else if (pdata.status === "failed" || pdata.status === "cancelled") {
+          clearInterval(pollRef.current!);
+          pollRef.current = null;
+          setActionMsg(`Job ${pdata.status}${pdata.error ? `: ${pdata.error}` : ""}`);
+        }
+      } catch { /* network hiccup — continue polling */ }
+    }, 4000);
   }
+
+  // Clean up poll on unmount
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
   // Loading state
   if (loading) {
@@ -748,9 +796,32 @@ export default function PlannedRouteDetailPage({
               </div>
             </div>
 
+            {/* Job progress bar */}
+            {runningIntel && (
+              <div className="rounded-xl bg-brand-50 border border-brand-200 px-4 py-3 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-brand-800 flex items-center gap-1.5">
+                    <Loader2 size={12} className="animate-spin" />
+                    {jobStatus === "pending" ? "Queued — starting within 60s…" : `Analyzing segments… ${jobDone}/${jobTotal}`}
+                  </span>
+                  <span className="text-brand-600 font-bold num">{jobProgress}%</span>
+                </div>
+                <div className="h-1.5 bg-brand-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-brand-600 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.max(jobProgress, jobStatus === "pending" ? 2 : 5)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Action feedback */}
-            {actionMsg && (
-              <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-2.5 text-sm text-blue-800 flex items-center gap-2">
+            {actionMsg && !runningIntel && (
+              <div className={`rounded-lg px-4 py-2.5 text-sm flex items-center gap-2 ${
+                actionMsg.startsWith("Error") || actionMsg.includes("failed") || actionMsg.includes("cancelled")
+                  ? "bg-red-50 border border-red-200 text-red-800"
+                  : "bg-blue-50 border border-blue-200 text-blue-800"
+              }`}>
                 <CheckCircle2 size={14} />{actionMsg}
               </div>
             )}
