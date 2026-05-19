@@ -87,6 +87,17 @@ interface CorridorRow {
   routes_fetched: boolean;
 }
 
+interface MapSegmentRow {
+  watched_route_id: string;
+  route_variant: number;
+  seq: number;
+  lat: string | null;
+  lng: string | null;
+  has_disruption: boolean;
+  disruption_risk_level: string | null;
+  name: string;
+}
+
 // GET /api/advisory/v1/intelligence
 // Returns aggregated real data from watched corridors for all advisory pages.
 export async function GET(req: NextRequest) {
@@ -94,12 +105,13 @@ export async function GET(req: NextRequest) {
   try { actor = await requireUser(req); }
   catch { return applySecurityHeaders(NextResponse.json({ error: "Unauthorized" }, { status: 401 })); }
 
-  const [disruptedRows, corridors] = await Promise.all([
+  const [disruptedRows, corridors, mapSegments] = await Promise.all([
     db`
       SELECT
         s.id, s.name, s.segment_type, s.state,
         s.disruption_risk_level, s.disruption_title, s.disruption_summary,
         s.disruption_eta_hours, s.disruption_category, s.last_checked_at,
+        s.lat, s.lng,
         r.id          AS corridor_id,
         r.name        AS corridor_name,
         r.origin, r.destination
@@ -119,7 +131,7 @@ export async function GET(req: NextRequest) {
           ELSE 5
         END,
         s.disruption_eta_hours DESC NULLS LAST
-    ` as unknown as SegmentRow[],
+    ` as unknown as (SegmentRow & { lat: string | null; lng: string | null })[],
 
     db`
       SELECT id, name, origin, destination, max_risk_level,
@@ -128,10 +140,49 @@ export async function GET(req: NextRequest) {
       WHERE  org_id = ${actor.org} AND is_active = true
       ORDER  BY created_at DESC
     ` as unknown as CorridorRow[],
+
+    // Primary route path (variant 0) for each corridor — for map rendering
+    db`
+      SELECT s.watched_route_id, s.route_variant, s.seq,
+             s.lat, s.lng, s.has_disruption, s.disruption_risk_level, s.name
+      FROM   adv_watched_segments s
+      JOIN   adv_watched_routes   r ON r.id = s.watched_route_id
+      WHERE  r.org_id     = ${actor.org}
+        AND  r.is_active   = true
+        AND  s.route_variant = 0
+        AND  s.lat IS NOT NULL
+        AND  s.lng IS NOT NULL
+      ORDER  BY s.watched_route_id, s.seq
+    ` as unknown as MapSegmentRow[],
   ]);
 
+  // Group map segments by corridor for route rendering
+  const corridorRoutes = corridors.map((c) => {
+    const points = mapSegments
+      .filter((s) => s.watched_route_id === c.id)
+      .sort((a, b) => a.seq - b.seq)
+      .map((s) => ({
+        lat: parseFloat(s.lat!),
+        lng: parseFloat(s.lng!),
+        risk: s.has_disruption ? (s.disruption_risk_level ?? "safe") : "safe",
+        name: s.name,
+      }));
+    return { corridorId: c.id, corridorName: c.name, origin: c.origin, destination: c.destination, points };
+  }).filter((cr) => cr.points.length > 0);
+
+  // Deduplicate: one disruption per unique (corridor + title) pair.
+  // Multiple adjacent segments often describe the same real-world event.
+  // Keep the highest-risk representative segment for each unique event.
+  const seenDisruptionKeys = new Set<string>();
+  const dedupedRows = disruptedRows.filter((seg) => {
+    const key = `${seg.corridor_id}::${(seg.disruption_title ?? seg.name).trim().toLowerCase()}`;
+    if (seenDisruptionKeys.has(key)) return false;
+    seenDisruptionKeys.add(key);
+    return true;
+  });
+
   // Map segments → Disruption objects
-  const disruptions: Disruption[] = disruptedRows.map((seg) => ({
+  const disruptions: Disruption[] = dedupedRows.map((seg) => ({
     id: seg.id,
     category: safeCategory(seg.disruption_category),
     title: seg.disruption_title ?? `Disruption on ${seg.name}`,
@@ -148,11 +199,11 @@ export async function GET(req: NextRequest) {
     verified: true,
     source: `AI Intelligence — ${seg.corridor_name}`,
     started_at: seg.last_checked_at ?? new Date().toISOString(),
-    expected_clear_at: null,
+    expected_clear_at: undefined,
   }));
 
-  // Derive advisories from disrupted segments (one per unique corridor+segment combination)
-  const advisories: Advisory[] = disruptedRows.slice(0, 24).map((seg) => ({
+  // Derive advisories from deduplicated disruptions (same dedup as above)
+  const advisories: Advisory[] = dedupedRows.slice(0, 24).map((seg) => ({
     id: `adv-${seg.id}`,
     type: RISK_TO_TYPE[seg.disruption_risk_level] ?? "delay",
     title: `${seg.corridor_name} — ${seg.disruption_title ?? `Disruption on ${seg.name}`}`,
@@ -206,6 +257,7 @@ export async function GET(req: NextRequest) {
 
   return applySecurityHeaders(
     NextResponse.json({
+      corridorRoutes,
       stats: {
         totalDisruptions,
         criticalAlerts,
