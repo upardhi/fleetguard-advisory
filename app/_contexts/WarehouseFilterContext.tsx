@@ -71,6 +71,7 @@ export function WarehouseFilterProvider({
   // If default changes (user logs in fresh) and nothing saved, reset
   useEffect(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!saved) setSelectedIdState(defaultWarehouseId);
   }, [defaultWarehouseId]);
 

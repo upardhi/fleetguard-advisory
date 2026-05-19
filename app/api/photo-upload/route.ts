@@ -24,10 +24,10 @@ export async function POST(request: NextRequest) {
   try {
     const imageUrl = await uploadImage(file, 'fg_photos');
     return NextResponse.json({ success: true, imageUrl });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[photo-upload] failed:', err);
     return NextResponse.json(
-      { error: err.message ?? 'Upload failed' },
+      { error: err instanceof Error ? err.message : 'Upload failed' },
       { status: 500 }
     );
   }

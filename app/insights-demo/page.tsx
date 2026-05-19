@@ -515,8 +515,9 @@ function UrgentDriversTable({
 }: {
   rows: Array<{ id: string; name: string; dlNumber: string; dlExpiryMs: number; dlStatus: string; bgStatus: string }>;
 }) {
-  // Cache "now" once at render so the table is stable.
-  const now = Date.now();
+  // Cache "now" once so the table is stable across re-renders.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const now = useMemo(() => Date.now(), []);
   return (
     <div className="overflow-hidden">
       <table className="w-full text-[12.5px]">

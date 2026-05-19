@@ -31,6 +31,7 @@ export function TopBar({ warehouse, breadcrumbs, alertCount, hideSearch, alertsH
   const resolvedAlertsHref = isGuardPath ? undefined : (alertsHref ?? deriveAlertsHref(pathname));
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNow(new Date());
     const id = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(id);

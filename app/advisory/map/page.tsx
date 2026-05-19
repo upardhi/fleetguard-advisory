@@ -42,8 +42,8 @@ const RISK_FILL: Record<string, string> = {
 // Lazy-loaded map component to avoid SSR issues with Leaflet
 function LeafletMap({ corridorRoutes, disruptions }: { corridorRoutes: CorridorRoute[]; disruptions: Disruption[] }) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const layersRef = useRef<any[]>([]);
+  const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
+  const layersRef = useRef<import("leaflet").Layer[]>([]);
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
@@ -51,7 +51,7 @@ function LeafletMap({ corridorRoutes, disruptions }: { corridorRoutes: CorridorR
     // Dynamic import to avoid SSR
     import("leaflet").then((L) => {
       // Fix default marker icon resolution in bundled environments
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
+      delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
 
       const map = L.map(mapRef.current!, {
         center: [22.5, 82.5],
@@ -84,12 +84,12 @@ function LeafletMap({ corridorRoutes, disruptions }: { corridorRoutes: CorridorR
     import("leaflet").then((L) => {
       layersRef.current.forEach((l) => l.remove());
       layersRef.current = [];
-      renderLayers(L, mapInstanceRef.current, corridorRoutes, disruptions);
+      renderLayers(L, mapInstanceRef.current!, corridorRoutes, disruptions);
     });
   }, [corridorRoutes, disruptions]);
 
-  function renderLayers(L: any, map: any, routes: CorridorRoute[], disrpts: Disruption[]) {
-    const newLayers: any[] = [];
+  function renderLayers(L: typeof import("leaflet"), map: import("leaflet").Map, routes: CorridorRoute[], disrpts: Disruption[]) {
+    const newLayers: import("leaflet").Layer[] = [];
 
     routes.forEach((cr) => {
       const pts = cr.points;

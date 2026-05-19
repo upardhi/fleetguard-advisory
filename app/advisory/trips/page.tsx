@@ -44,7 +44,8 @@ export default function TripsPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }
-  useEffect(load, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, []);
 
   const filtered = useMemo(
     () => trips.filter((t) => statusFilter === "all" || t.status === statusFilter),

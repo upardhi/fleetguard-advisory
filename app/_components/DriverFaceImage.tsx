@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Avatar } from "./Avatar";
 import { cx } from "../_lib/utils";
 
@@ -24,13 +24,9 @@ export function DriverFaceImage({
   size?: Size;
   className?: string;
 }) {
-  const [broken, setBroken] = useState(false);
-
-  // Reset the broken state if the src actually changes (e.g. the driver
-  // detail panel reopens on a different driver).
-  useEffect(() => {
-    setBroken(false);
-  }, [src]);
+  // Track which src URL failed so the broken state auto-resets when src changes.
+  const [brokenSrc, setBrokenSrc] = useState<string | null | undefined>(undefined);
+  const broken = brokenSrc === src && src != null;
 
   if (!src || broken) {
     return <Avatar name={name} size={size} className={className} />;
@@ -50,7 +46,7 @@ export function DriverFaceImage({
     <img
       src={src}
       alt={name}
-      onError={() => setBroken(true)}
+      onError={() => setBrokenSrc(src)}
       className={cx(dim, "shrink-0 object-cover", ringed, className)}
     />
   );

@@ -1,4 +1,5 @@
 "use client";
+import { useMemo } from "react";
 import type { Advisory } from "@/app/_lib/types";
 import RiskBadge from "./RiskBadge";
 import { Clock, MapPin, CheckCircle, Zap } from "lucide-react";
@@ -14,7 +15,11 @@ const TYPE_CONFIG = {
 
 export default function AdvisoryCard({ a, compact }: { a: Advisory; compact?: boolean }) {
   const cfg = TYPE_CONFIG[a.type];
-  const timeLeft = Math.max(0, Math.floor((new Date(a.validUntil).getTime() - Date.now()) / 60000));
+  const timeLeft = useMemo(
+    // eslint-disable-next-line react-hooks/purity
+    () => Math.max(0, Math.floor((new Date(a.validUntil).getTime() - Date.now()) / 60000)),
+    [a.validUntil],
+  );
   const hrsLeft  = Math.floor(timeLeft / 60);
   const minsLeft = timeLeft % 60;
 

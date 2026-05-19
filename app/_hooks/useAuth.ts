@@ -87,6 +87,7 @@ export function useAuth(): AuthState & {
     initializeOnce();
     listeners.add(setState);
     // Sync in case the cache moved between render and mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setState(cachedState);
     return () => {
       listeners.delete(setState);

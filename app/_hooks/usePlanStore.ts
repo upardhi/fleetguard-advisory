@@ -27,6 +27,7 @@ export function usePlanStore() {
   const [plans, setPlans] = useState<DispatchPlan[]>(MOCK_DISPATCH_PLANS);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPlans(load());
   }, []);
 

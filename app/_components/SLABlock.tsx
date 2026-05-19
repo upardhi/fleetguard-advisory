@@ -10,6 +10,7 @@
  * with awkward gaps. One component, one block.
  */
 
+import { useMemo } from "react";
 import { Badge } from "./Badge";
 import { EscalationBadge } from "./EscalationBadge";
 import { fmtDateTime } from "../_lib/utils";
@@ -27,7 +28,11 @@ function formatDelta(diffMin: number): string {
 }
 
 export function SLABlock({ deadline, escalationLevel = 0 }: Props) {
-  const diffMin = Math.floor((deadline.getTime() - Date.now()) / 60_000);
+  const diffMin = useMemo(
+    // eslint-disable-next-line react-hooks/purity
+    () => Math.floor((deadline.getTime() - Date.now()) / 60_000),
+    [deadline],
+  );
   const breached = diffMin < 0;
   const atRisk   = !breached && diffMin < 120;
 

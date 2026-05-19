@@ -149,7 +149,7 @@ export default function ProfilePage() {
               </div>
               <div className="p-5 flex items-center justify-between gap-3">
                 <p className="text-sm text-slate-600">
-                  View your team's roles and warehouse assignments.
+                  View your team&apos;s roles and warehouse assignments.
                 </p>
                 <Link
                   href="/advisory/team"

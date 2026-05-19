@@ -71,6 +71,7 @@ export function useWarehouse(fgUser: UserProfileV2 | null): {
 
     // Already cached — use immediately, no fetch needed.
     if (cache.has(id)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setWarehouse(cache.get(id)!);
       return;
     }
