@@ -9,6 +9,7 @@ import type { Disruption, DisruptionCategory, RiskLevel } from "@/app/_lib/types
 import {
   Search, Filter, MapPin, Clock, Shield, AlertCircle,
   ExternalLink, X, Loader2, Route, ArrowRight,
+  CheckCircle2, XCircle, Database,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -277,10 +278,48 @@ export default function DisruptionsPage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 text-xs text-slate-400">
-                <ExternalLink size={11} />
-                <span>{selected.source}</span>
-              </div>
+              {/* Sources */}
+              {selected.sources && selected.sources.length > 0 ? (
+                <div>
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <Database size={11} /> Intelligence Sources
+                  </h4>
+                  <div className="space-y-2">
+                    {selected.sources.map((src, i) => (
+                      <div key={i} className={`flex items-start gap-2 p-2.5 rounded-lg text-[11px] ${src.isRelevant ? "bg-green-50 border border-green-100" : "bg-slate-50 border border-slate-100"}`}>
+                        <span className="shrink-0 mt-0.5">
+                          {src.isRelevant
+                            ? <CheckCircle2 size={12} className="text-green-600" />
+                            : <XCircle size={12} className="text-slate-300" />}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <a
+                            href={src.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`font-medium truncate block hover:underline ${src.isRelevant ? "text-green-800" : "text-slate-500"}`}
+                          >
+                            {src.title || src.url}
+                            <ExternalLink size={9} className="inline ml-1 opacity-60" />
+                          </a>
+                          {src.snippet && (
+                            <p className="text-slate-400 mt-0.5 line-clamp-2">{src.snippet}</p>
+                          )}
+                        </div>
+                        <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold ${src.isRelevant ? "bg-green-200 text-green-800" : "bg-slate-200 text-slate-500"}`}>
+                          {src.isRelevant ? "Used ✓" : "Skipped"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-2 text-right">Powered by Firecrawl + OpenAI</p>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <ExternalLink size={11} />
+                  <span>{selected.source}</span>
+                </div>
+              )}
 
               <div>
                 <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">

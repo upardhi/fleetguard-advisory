@@ -396,6 +396,7 @@ const ADVISORY_NAV: Section[] = [
     heading: "Corridors",
     items: [
       { href: "/advisory/planned", label: "Watched Corridors", icon: "listChecks" },
+      { href: "/advisory/events",  label: "Fleet Events",      icon: "calendar" },
     ],
   },
   {

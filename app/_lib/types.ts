@@ -36,6 +36,14 @@ export type DisruptionCategory =
   | "vvip"
   | "natural_disaster";
 
+export interface EventSource {
+  url: string;
+  title: string;
+  snippet: string;
+  isRelevant: boolean;
+  scrapedAt: string;
+}
+
 export interface Disruption {
   id: string;
   category: DisruptionCategory;
@@ -53,6 +61,29 @@ export interface Disruption {
   source: string;
   started_at: string;
   expected_clear_at?: string;
+  sources?: EventSource[];
+}
+
+export interface CorridorEvent {
+  id: string;
+  watched_route_id: string;
+  segment_id: string | null;
+  event_type: "ongoing" | "scheduled" | "historical";
+  event_start_at: string | null;
+  event_end_at: string | null;
+  detected_at: string;
+  title: string;
+  summary: string | null;
+  category: DisruptionCategory;
+  risk_level: RiskLevel;
+  eta_impact_hours: number;
+  duration_days: number;
+  sources: EventSource[];
+  rescan_count: number;
+  is_active: boolean;
+  corridor_name?: string;
+  corridor_origin?: string;
+  corridor_destination?: string;
 }
 
 export interface Advisory {

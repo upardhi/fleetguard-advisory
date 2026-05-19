@@ -88,10 +88,25 @@ export async function decomposeRoute(
 }
 
 /**
- * Build the Firecrawl search query for a segment. Tuned to surface
- * transport-affecting news for the coming days.
+ * Current disruption search — scoped to last 7 days by Firecrawl (tbs:qdr:w).
+ * Surfaces active accidents, closures, protests happening NOW.
  */
-export function segmentSearchQuery(seg: { name: string; state?: string }): string {
+export function currentSearchQuery(seg: { name: string; state?: string }): string {
   const place = seg.state ? `${seg.name} ${seg.state}` : seg.name;
-  return `${place} road OR highway bandh OR accident OR flood OR protest OR roadblock news`;
+  return `${place} road OR highway accident OR flood OR protest OR roadblock OR closed OR blocked news`;
+}
+
+/**
+ * Future event search — no date restriction, explicitly looks for upcoming events.
+ * Surfaces PM visits, bandh calls, election rallies, processions announced ahead of time.
+ */
+export function futureSearchQuery(seg: { name: string; state?: string }): string {
+  const place = seg.state ? `${seg.name} ${seg.state}` : seg.name;
+  const year = new Date().getFullYear();
+  return `${place} bandh OR "PM visit" OR "CM visit" OR rally OR election OR yatra OR procession OR strike OR roadblock scheduled ${year}`;
+}
+
+/** @deprecated Use currentSearchQuery instead */
+export function segmentSearchQuery(seg: { name: string; state?: string }): string {
+  return currentSearchQuery(seg);
 }

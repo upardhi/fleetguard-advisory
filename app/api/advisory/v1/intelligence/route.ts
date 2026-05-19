@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/app/_server/auth/getUser";
 import { db } from "@/app/_server/db/client";
 import { applySecurityHeaders } from "@/app/_server/security/headers";
-import type { Disruption, Advisory, RiskLevel, DisruptionCategory } from "@/app/_lib/types";
+import type { Disruption, Advisory, RiskLevel, DisruptionCategory, EventSource } from "@/app/_lib/types";
 
 const VALID_CATEGORIES = new Set([
   "political", "weather", "traffic", "security",
@@ -69,6 +69,7 @@ interface SegmentRow {
   disruption_summary: string | null;
   disruption_eta_hours: number | null;
   disruption_category: string | null;
+  disruption_sources: unknown | null;
   last_checked_at: string | null;
   corridor_id: string;
   corridor_name: string;
@@ -110,8 +111,8 @@ export async function GET(req: NextRequest) {
       SELECT
         s.id, s.name, s.segment_type, s.state,
         s.disruption_risk_level, s.disruption_title, s.disruption_summary,
-        s.disruption_eta_hours, s.disruption_category, s.last_checked_at,
-        s.lat, s.lng,
+        s.disruption_eta_hours, s.disruption_category, s.disruption_sources,
+        s.last_checked_at, s.lat, s.lng,
         r.id          AS corridor_id,
         r.name        AS corridor_name,
         r.origin, r.destination
@@ -200,6 +201,7 @@ export async function GET(req: NextRequest) {
     source: `AI Intelligence — ${seg.corridor_name}`,
     started_at: seg.last_checked_at ?? new Date().toISOString(),
     expected_clear_at: undefined,
+    sources: Array.isArray(seg.disruption_sources) ? (seg.disruption_sources as EventSource[]) : undefined,
   }));
 
   // Derive advisories from deduplicated disruptions (same dedup as above)
