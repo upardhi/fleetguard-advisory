@@ -217,7 +217,7 @@ export async function parseIncidentFromRSSItem(
   queryType: 'past' | 'future' = 'past'
 ): Promise<Incident | null> {
   const combinedText = `${item.title} ${item.description} ${item.content || ''}`;
-  debugger;
+  
   const pubDate = item.pubDate ? parseDate(item.pubDate) : null;
 
   const eventDate = extractEventDate(combinedText);

@@ -78,25 +78,60 @@ export async function scrapeWithFirecrawl(url: string): Promise<ScrapedContent |
 
 export function detectSourceType(url: string): SourceType {
   const domain = url.toLowerCase();
-  if (domain.includes('twitter.com') || domain.includes('x.com')) return 'social';
-  if (domain.includes('facebook.com') || domain.includes('instagram.com')) return 'social';
-  if (domain.includes('reddit.com') || domain.includes('telegram')) return 'social';
-  if (domain.includes('youtube.com')) return 'social';
-  if (domain.includes('indianrailways') || domain.includes('irctc') || domain.includes('metro')) return 'railway';
-  if (domain.includes('.gov.in') || domain.includes('government') || domain.includes('police')) return 'government';
-  if (domain.includes('traffic') || domain.includes('nhai')) return 'traffic';
+
   if (
-    domain.includes('timesofindia') ||
-    domain.includes('ndtv') ||
-    domain.includes('hindustantimes') ||
-    domain.includes('thehindu') ||
-    domain.includes('indiatimes') ||
-    domain.includes('news18') ||
-    domain.includes('abplive') ||
-    domain.includes('news.google')
-  ) return 'news';
-  if (domain.includes('rss') || domain.includes('feed')) return 'rss';
-  return 'unknown';
+    domain.includes('twitter.com') ||
+    domain.includes('x.com')
+  ) return 'social';
+
+  if (
+    domain.includes('facebook.com') ||
+    domain.includes('fb.watch')
+  ) return 'social';
+
+  if (
+    domain.includes('instagram.com')
+  ) return 'social';
+
+  if (
+    domain.includes('reddit.com')
+  ) return 'social';
+
+  if (
+    domain.includes('youtube.com') ||
+    domain.includes('youtu.be')
+  ) return 'social';
+
+  if (
+    domain.includes('t.me') ||
+    domain.includes('telegram.me')
+  ) return 'social';
+
+  if (
+    domain.includes('threads.net')
+  ) return 'social';
+
+  if (
+    domain.includes('linkedin.com')
+  ) return 'social';
+
+  if (
+    domain.includes('.gov.in') ||
+    domain.includes('police') ||
+    domain.includes('government')
+  ) return 'government';
+
+  if (
+    domain.includes('traffic') ||
+    domain.includes('nhai')
+  ) return 'traffic';
+
+  if (
+    domain.includes('rss') ||
+    domain.includes('feed')
+  ) return 'rss';
+
+  return 'news';
 }
 
 
@@ -112,8 +147,12 @@ export async function searchWithFirecrawl(query: string): Promise<ScrapedContent
       },
       body: JSON.stringify({
         query,
-        limit: 5,
-        scrapeOptions: { formats: ['markdown'] },
+        limit: 20,
+        scrapeOptions: {
+          formats: ['markdown'],
+          onlyMainContent: true,
+          waitFor: 3000,
+        },
       }),
     });
 

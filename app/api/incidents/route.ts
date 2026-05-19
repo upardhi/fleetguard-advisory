@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { IncidentSearchRequest, IncidentSearchResponse, Incident } from '@/types';
 import { buildSearchQueries } from '@/lib/query-builder';
 import { parseIncidentFromScrapedContent } from '@/services/incident-parser.service';
-import { deduplicateIncidents, filterByRelevance } from '@/services/dedupe.service';
+import { deduplicateIncidents } from '@/services/dedupe.service';
 import { sortIncidentsByTime } from '@/services/timeline.service';
 import { searchAndScrapeIncidents } from '@/services/scraper.service';
-import { TRAFFIC_CATEGORIES } from '@/lib/constants';
+import { saveTrafficNews } from '@/services/database/incident-db.service';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -25,20 +25,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const scrapedArticles = await searchAndScrapeIncidents(
       futureQueries.slice(0, 8),
       location,
-      25,
+      30,
     );
     const allIncidents: Incident[] = [];
     for (const content of scrapedArticles) {
       const incident = await parseIncidentFromScrapedContent(
         content, location, 0, futureHours, 'future'
       );
-      
+
       if (incident) allIncidents.push(incident);
     }
 
     const deduped = deduplicateIncidents(allIncidents);
     const sorted = sortIncidentsByTime(deduped);
-    debugger;
+
+    // saveTrafficNews(sorted)
+    //   .catch(console.error);
 
     const response: IncidentSearchResponse = {
       success: true,

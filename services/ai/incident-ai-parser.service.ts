@@ -101,11 +101,14 @@ export async function extractIncidentWithAI(content: string) {
         messages: [
             {
                 role: 'system',
-                content: INCIDENT_EXTRACTION_PROMPT,
+                content: INCIDENT_EXTRACTION_PROMPT.replace(
+                    '{{CURRENT_DATE}}',
+                    new Date().toISOString()
+                ),
             },
             {
                 role: 'user',
-                content: content.slice(0, 4000),
+                content: content.slice(0, 5000),
             },
         ],
     });

@@ -6,6 +6,8 @@ import { MAX_PARALLEL_SCRAPES, SCRAPE_TIMEOUT_MS } from '@/lib/constants';
 import { firecrawlScrape } from '@/app/_server/advisory/firecrawl';
 import { fetchGoogleRSS } from './google-rss.service';
 import { resolveGoogleNewsUrl } from './google-news-decoder.service';
+import { discoverSources } from './source-discovery.service';
+import { crawlSource } from './firecrawl-deep.service';
 
 const SCRAPER_BASE_URL = process.env.SCRAPER_SERVICE_URL || 'http://localhost:8001';
 
@@ -156,76 +158,75 @@ function isWithin7Days(pubDate: string | null): boolean {
 
 export async function searchAndScrapeIncidents(
   queries: string[],
-  location: string,          // ← add location param
-  maxUrls = 25,              // ← hard cap
+  location: string,
+  maxUrls = 40,
 ): Promise<ScrapedContent[]> {
 
-  const candidateUrls = new Map<string, string>(); // url → title
+  const results: ScrapedContent[] = [];
+  
+  // STEP 1 — RSS DISCOVERY
+  const rssUrls = new Set<string>();
 
-  // STEP 1: Fetch RSS, filter aggressively BEFORE scraping
-  for (const query of queries.slice(0, 8)) { // max 8 queries
+  for (const query of queries.slice(0, 8)) {
     try {
       const items = await fetchGoogleRSS(query);
 
       for (const item of items) {
         if (!item.link) continue;
-        if (candidateUrls.has(item.link)) continue;
 
-        // Must be recent
         if (!isWithin7Days(item.pubDate)) continue;
 
-        // Title must mention the location
         if (!isLocationRelevant(item.title, location)) continue;
 
-        // Title must be traffic-related
         if (!isTitleTrafficRelevant(item.title)) continue;
 
-        candidateUrls.set(item.link, item.title);
+        rssUrls.add(item.link);
 
-        if (candidateUrls.size >= maxUrls) break;
+        if (rssUrls.size >= 20) break;
       }
-
-      if (candidateUrls.size >= maxUrls) break;
-
     } catch (err) {
-      console.warn(`RSS failed for ${query}`, err);
+      console.warn('RSS failed:', err);
     }
   }
 
-  console.log(`[scraper] ${candidateUrls.size} relevant URLs after filtering`);
+  // STEP 2 — SOCIAL + WEB DISCOVERY
+  const discoveredUrls = await discoverSources(
+    queries,
+    20
+  );
+  
+  const allUrls = Array.from(
+    new Set([
+      ...Array.from(rssUrls),
+      ...discoveredUrls,
+    ])
+  ).slice(0, maxUrls);
 
-  // STEP 2: Scrape only the filtered URLs
-  const results: ScrapedContent[] = [];
+  // STEP 3 — SCRAPE EVERYTHING
+  await Promise.all(
+    allUrls.map(async (url) => {
+      try {
+        const isSocial =
+          detectSourceType(url) === 'social';
 
-  for (const [url] of candidateUrls) {
-    try {
-      const isSocial =
-        url.includes('instagram.com') ||
-        url.includes('facebook.com') ||
-        url.includes('twitter.com') ||
-        url.includes('x.com');
+        if (isSocial) {
+          const pages = await crawlSource(url, 5);
 
-      if (isSocial) {
-        const scraped = await firecrawlScrape(url);
-        results.push({
-          url,
-          title: scraped.title,
-          text: scraped.markdown,
-          publishedAt: null,
-          images: [],
-          sourceType: 'social',
-        });
-      } else {
-        const finalUrl = await resolveGoogleNewsUrl(url);
-        
-        const scraped = await scrapeUrl(finalUrl);
-        
-        if (scraped) results.push(scraped);
+          results.push(...pages);
+        } else {
+          const finalUrl = await resolveGoogleNewsUrl(url);
+
+          const scraped = await scrapeUrl(finalUrl);
+
+          if (scraped) {
+            results.push(scraped);
+          }
+        }
+      } catch (err) {
+        console.warn('scrape failed', url);
       }
-    } catch (err) {
-      console.warn(`scrape failed for ${url}`, err);
-    }
-  }
+    })
+  );
 
   return results;
 }

@@ -1,67 +1,89 @@
-import { Pool } from 'pg';
+
+import { db } from '@/app/_server/db/client';
+import { uuidv7 } from '@/app/_server/db/uuidv7';
 import { Incident } from '@/types';
 
-const pool = new Pool({
-  connectionString: process.env.SUPABASE_POOLER_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
-});
-
-export async function saveIncidentsToDB(
+export async function saveTrafficNews(
   incidents: Incident[]
-) {
+): Promise<void> {
   if (!incidents.length) return;
 
-  const client = await pool.connect();
-
   try {
-    await client.query('BEGIN');
+    await Promise.all(
+      incidents.map(async (incident) => {
+        await db`
+  INSERT INTO traffic_news (
+    id,
+    title,
+    category,
+    severity,
+    status,
+    incident_datetime,
+    summary,
+    traffic_impact,
+    travel_advisory,
+    city,
+    state,
+    affected_routes,
+    affected_areas,
+    source_urls,
+    raw_data,
+    created_at
+  )
+  VALUES (
+    ${incident.id ?? uuidv7()},
+    ${incident.title ?? null},
+    ${incident.category ?? null},
+    ${incident.severity ?? null},
+    ${incident.status ?? null},
+    ${incident.incidentDateTime ?? null},
+    ${incident.summary ?? null},
+    ${incident.trafficImpact ?? null},
+    ${incident.travelAdvisory ?? null},
 
-    for (const incident of incidents) {
-      await client.query(
-        `
-        INSERT INTO incidents (
-          id,
-          title,
-          category,
-          severity,
-          status,
-          incident_datetime,
-          summary,
-          traffic_impact,
-          raw_data,
-          created_at
-        )
-        VALUES (
-          $1,$2,$3,$4,$5,$6,$7,$8,$9,NOW()
-        )
-        ON CONFLICT (id)
-        DO NOTHING
-        `,
-        [
-          incident.id,
-          incident.title,
-          incident.category,
-          incident.severity,
-          incident.status,
-          incident.incidentDateTime,
-          incident.summary,
-          incident.trafficImpact,
-          JSON.stringify(incident),
-        ]
-      );
-    }
+    ${incident.location?.city ?? null},
+    ${incident.location?.state ?? null},
 
-    await client.query('COMMIT');
+    ${db.json(
+          JSON.parse(
+            JSON.stringify(
+              incident.affectedRoutes ?? []
+            )
+          )
+        )},
+
+    ${db.json(
+          JSON.parse(
+            JSON.stringify(
+              incident.location?.area ?? []
+            )
+          )
+        )},
+
+    ${db.json(
+          JSON.parse(
+            JSON.stringify(
+              incident.sources?.map((s) => s.url) ?? []
+            )
+          )
+        )},
+
+    ${db.json(
+          JSON.parse(JSON.stringify(incident))
+        )},
+
+    NOW()
+  )
+
+  ON CONFLICT (id)
+  DO NOTHING
+`;
+      })
+    );
   } catch (err) {
-    await client.query('ROLLBACK');
-
     console.error(
-      'Incident save failed:',
+      'Traffic news save failed:',
       err
     );
-  } finally {
-    client.release();
   }
 }
