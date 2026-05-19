@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
-import TopBar from "@/app/_components/TopBar";
+import { TopBar } from "@/app/_components/TopBar";
 import RiskBadge from "@/app/_components/RiskBadge";
 import CategoryBadge from "@/app/_components/Badge";
 import DisruptionCard from "@/app/_components/DisruptionCard";

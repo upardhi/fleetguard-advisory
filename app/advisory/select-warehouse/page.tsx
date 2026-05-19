@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAdvisory, type AdvisoryWarehouse } from "@/app/_contexts/AdvisoryContext";
-import Logo from "@/app/_components/Logo";
+import { Logo } from "@/app/_components/Logo";
 import {
   MapPin,
   Building2,

@@ -1,0 +1,620 @@
+-- FleetGuard — initial schema
+-- Supabase Postgres (PG 15), Mumbai (ap-south-1)
+-- All UUIDs are UUIDv7 strings generated in Node.js.
+
+-- ── Extensions ───────────────────────────────────────────────────────────────
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+
+-- ── Enums ─────────────────────────────────────────────────────────────────────
+CREATE TYPE user_role AS ENUM (
+  'superadmin', 'company_admin', 'guard', 'wh_manager', 'regional_manager', 'cso'
+);
+CREATE TYPE check_status    AS ENUM ('clear', 'expiring', 'expired', 'blocked');
+CREATE TYPE bg_status       AS ENUM ('pending', 'clear', 'flagged', 'recheck_required');
+CREATE TYPE risk_level      AS ENUM ('green', 'amber', 'red');
+CREATE TYPE delivery_mode   AS ENUM ('simple', 'secure');
+CREATE TYPE face_match_res  AS ENUM ('match', 'uncertain', 'mismatch');
+CREATE TYPE trip_status     AS ENUM ('planned', 'loading', 'in_transit', 'returning', 'closed');
+CREATE TYPE stop_status     AS ENUM (
+  'pending', 'confirmed', 'undelivered', 'returned', 'disputed', 'rescheduled'
+);
+CREATE TYPE gate_event_type AS ENUM (
+  'inbound_entry', 'inbound_exit',
+  'outbound_entry', 'outbound_exit',
+  'visitor_entry', 'visitor_exit',
+  'contractor_entry', 'contractor_exit'
+);
+CREATE TYPE alert_type AS ENUM (
+  'dl_expired', 'dl_expiring', 'dl_not_found',
+  'bg_flagged', 'bg_pending',
+  'vehicle_expired', 'pin_locked',
+  'trip_overdue', 'delivery_overdue', 'visitor_overdue',
+  'contract_expiring', 'face_mismatch',
+  'dl_mismatch_at_exit', 'vehicle_mismatch_at_exit',
+  'invoice_mismatch', 'incident_sla',
+  'duplicate_vehicle_entry', 'duplicate_driver_entry', 'duplicate_visitor_entry'
+);
+CREATE TYPE alert_severity  AS ENUM ('info', 'warning', 'critical');
+CREATE TYPE alert_status    AS ENUM ('open', 'acknowledged', 'resolved');
+CREATE TYPE incident_type   AS ENUM (
+  'fraud_attempt', 'fake_pod', 'face_mismatch', 'unauthorized_entry',
+  'vehicle_noncompliance', 'driver_noncompliance',
+  'invoice_mismatch', 'theft', 'other'
+);
+CREATE TYPE incident_status AS ENUM ('open', 'investigating', 'resolved', 'closed');
+CREATE TYPE owner_type      AS ENUM ('owned', 'contractor');
+CREATE TYPE visitor_type    AS ENUM ('visitor', 'contractor', 'auditor', 'maintenance', 'other');
+CREATE TYPE gate_sess_status AS ENUM ('inside', 'exited', 'denied');
+CREATE TYPE mfa_type        AS ENUM ('totp', 'backup_code');
+CREATE TYPE subj_req_type   AS ENUM ('access', 'erasure', 'portability', 'rectification');
+CREATE TYPE subj_req_status AS ENUM ('pending', 'processing', 'completed', 'rejected');
+
+-- ── Orgs ──────────────────────────────────────────────────────────────────────
+CREATE TABLE orgs (
+  id         TEXT PRIMARY KEY,
+  name       TEXT        NOT NULL,
+  slug       TEXT        NOT NULL UNIQUE,
+  plan       TEXT        NOT NULL DEFAULT 'standard',
+  settings   JSONB       NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ── Users ─────────────────────────────────────────────────────────────────────
+CREATE TABLE users (
+  id                  TEXT        PRIMARY KEY,
+  org_id              TEXT        NOT NULL REFERENCES orgs(id),
+  email               TEXT        NOT NULL,
+  email_verified      BOOLEAN     NOT NULL DEFAULT false,
+  password_hash       TEXT        NOT NULL,
+  role                user_role   NOT NULL,
+  full_name           TEXT        NOT NULL,
+  mobile              TEXT,
+  warehouse_id        TEXT,
+  is_active           BOOLEAN     NOT NULL DEFAULT true,
+  mfa_required        BOOLEAN     NOT NULL DEFAULT false,
+  last_login_at       TIMESTAMPTZ,
+  password_changed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (org_id, email)
+);
+CREATE INDEX users_org_id ON users(org_id);
+CREATE INDEX users_email   ON users(email);
+
+-- ── MFA credentials ───────────────────────────────────────────────────────────
+CREATE TABLE mfa_credentials (
+  id         TEXT      PRIMARY KEY,
+  user_id    TEXT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type       mfa_type  NOT NULL,
+  secret     TEXT      NOT NULL, -- AES-256-GCM encrypted (base64)
+  label      TEXT,
+  verified   BOOLEAN   NOT NULL DEFAULT false,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX mfa_credentials_user_id ON mfa_credentials(user_id);
+
+-- ── Sessions ──────────────────────────────────────────────────────────────────
+CREATE TABLE sessions (
+  id           TEXT        PRIMARY KEY,
+  user_id      TEXT        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  org_id       TEXT        NOT NULL,
+  ip           TEXT,
+  user_agent   TEXT,
+  mfa_verified BOOLEAN     NOT NULL DEFAULT false,
+  expires_at   TIMESTAMPTZ NOT NULL,
+  revoked_at   TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX sessions_user_id   ON sessions(user_id);
+CREATE INDEX sessions_expires_at ON sessions(expires_at);
+
+-- ── Login attempts (brute-force guard) ────────────────────────────────────────
+CREATE TABLE login_attempts (
+  id           TEXT        PRIMARY KEY,
+  email        TEXT        NOT NULL,
+  ip           TEXT        NOT NULL,
+  success      BOOLEAN     NOT NULL,
+  attempted_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX login_attempts_email_ip ON login_attempts(email, ip, attempted_at DESC);
+
+-- ── Password history ──────────────────────────────────────────────────────────
+CREATE TABLE password_history (
+  id         TEXT        PRIMARY KEY,
+  user_id    TEXT        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  hash       TEXT        NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX password_history_user_id ON password_history(user_id, created_at DESC);
+
+-- ── Password reset tokens ─────────────────────────────────────────────────────
+CREATE TABLE password_reset_tokens (
+  id         TEXT        PRIMARY KEY,
+  user_id    TEXT        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT        NOT NULL UNIQUE, -- sha256(token)
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ── Warehouses ────────────────────────────────────────────────────────────────
+CREATE TABLE warehouses (
+  id         TEXT        PRIMARY KEY,
+  org_id     TEXT        NOT NULL REFERENCES orgs(id),
+  name       TEXT        NOT NULL,
+  city       TEXT        NOT NULL,
+  state      TEXT        NOT NULL,
+  region     TEXT        NOT NULL,
+  address    TEXT,
+  lat        NUMERIC(9,6),
+  lng        NUMERIC(9,6),
+  is_active  BOOLEAN     NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX warehouses_org_id ON warehouses(org_id);
+
+-- ── Gates ─────────────────────────────────────────────────────────────────────
+CREATE TABLE gates (
+  id           TEXT    PRIMARY KEY,
+  org_id       TEXT    NOT NULL REFERENCES orgs(id),
+  warehouse_id TEXT    NOT NULL REFERENCES warehouses(id),
+  name         TEXT    NOT NULL,
+  gate_type    TEXT    NOT NULL DEFAULT 'vehicle',
+  is_active    BOOLEAN NOT NULL DEFAULT true,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX gates_warehouse_id ON gates(warehouse_id);
+
+-- ── Contractors ───────────────────────────────────────────────────────────────
+CREATE TABLE contractors (
+  id             TEXT    PRIMARY KEY,
+  org_id         TEXT    NOT NULL REFERENCES orgs(id),
+  name           TEXT    NOT NULL,
+  contact_name   TEXT    NOT NULL,
+  contact_mobile TEXT    NOT NULL,
+  contract_start DATE,
+  contract_end   DATE,
+  is_active      BOOLEAN NOT NULL DEFAULT true,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX contractors_org_id ON contractors(org_id);
+
+-- ── Drivers ───────────────────────────────────────────────────────────────────
+CREATE TABLE drivers (
+  id             TEXT         PRIMARY KEY,
+  org_id         TEXT         NOT NULL REFERENCES orgs(id),
+  contractor_id  TEXT         REFERENCES contractors(id),
+  full_name      TEXT         NOT NULL,
+  mobile         TEXT         NOT NULL,     -- encrypted at app layer
+  dl_number      TEXT         NOT NULL,     -- encrypted at app layer
+  dl_expiry      DATE         NOT NULL,
+  dl_status      check_status NOT NULL DEFAULT 'clear',
+  bg_status      bg_status    NOT NULL DEFAULT 'pending',
+  face_photo_url TEXT,
+  is_active      BOOLEAN      NOT NULL DEFAULT true,
+  registered_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+CREATE INDEX drivers_org_id ON drivers(org_id);
+CREATE INDEX drivers_org_dl  ON drivers(org_id, dl_number);
+
+-- ── Vehicles ──────────────────────────────────────────────────────────────────
+CREATE TABLE vehicles (
+  id                  TEXT         PRIMARY KEY,
+  org_id              TEXT         NOT NULL REFERENCES orgs(id),
+  contractor_id       TEXT         REFERENCES contractors(id),
+  registration_number TEXT         NOT NULL,
+  vehicle_type        TEXT         NOT NULL,
+  owner_type          owner_type   NOT NULL DEFAULT 'owned',
+  rc_expiry           DATE         NOT NULL,
+  insurance_expiry    DATE         NOT NULL,
+  fitness_expiry      DATE         NOT NULL,
+  puc_expiry          DATE         NOT NULL,
+  status              check_status NOT NULL DEFAULT 'clear',
+  is_active           BOOLEAN      NOT NULL DEFAULT true,
+  created_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+CREATE INDEX vehicles_org_id       ON vehicles(org_id);
+CREATE INDEX vehicles_org_reg      ON vehicles(org_id, registration_number);
+
+-- ── Gate sessions (current inside/exited state) ───────────────────────────────
+CREATE TABLE gate_sessions (
+  id             TEXT             PRIMARY KEY,
+  org_id         TEXT             NOT NULL REFERENCES orgs(id),
+  warehouse_id   TEXT             NOT NULL REFERENCES warehouses(id),
+  session_type   TEXT             NOT NULL, -- driver | vehicle | visitor | contractor
+  entity_id      TEXT,
+  entry_event_id TEXT,
+  exit_event_id  TEXT,
+  status         gate_sess_status NOT NULL DEFAULT 'inside',
+  entered_at     TIMESTAMPTZ      NOT NULL DEFAULT now(),
+  exited_at      TIMESTAMPTZ
+);
+CREATE INDEX gate_sessions_wh_status ON gate_sessions(warehouse_id, status);
+CREATE INDEX gate_sessions_entity    ON gate_sessions(entity_id);
+
+-- ── Gate events (append-only, partitioned by month) ──────────────────────────
+CREATE TABLE gate_events (
+  id              TEXT             NOT NULL,
+  org_id          TEXT             NOT NULL REFERENCES orgs(id),
+  warehouse_id    TEXT             NOT NULL REFERENCES warehouses(id),
+  gate_id         TEXT             REFERENCES gates(id),
+  event_type      gate_event_type  NOT NULL,
+  vehicle_reg     TEXT,
+  person_name     TEXT,
+  contractor_name TEXT,
+  guard_id        TEXT             REFERENCES users(id),
+  guard_name      TEXT             NOT NULL,
+  trip_id         TEXT,
+  driver_id       TEXT,
+  vehicle_id      TEXT,
+  photo_url       TEXT,
+  status          gate_sess_status NOT NULL DEFAULT 'inside',
+  metadata        JSONB            NOT NULL DEFAULT '{}',
+  occurred_at     TIMESTAMPTZ      NOT NULL DEFAULT now(),
+  PRIMARY KEY (id, occurred_at)
+) PARTITION BY RANGE (occurred_at);
+
+CREATE TABLE gate_events_2025 PARTITION OF gate_events
+  FOR VALUES FROM ('2025-01-01') TO ('2026-01-01');
+CREATE TABLE gate_events_2026 PARTITION OF gate_events
+  FOR VALUES FROM ('2026-01-01') TO ('2027-01-01');
+CREATE TABLE gate_events_2027 PARTITION OF gate_events
+  FOR VALUES FROM ('2027-01-01') TO ('2028-01-01');
+CREATE TABLE gate_events_default PARTITION OF gate_events DEFAULT;
+
+CREATE INDEX gate_events_org_time ON gate_events(org_id, occurred_at DESC);
+CREATE INDEX gate_events_wh_time  ON gate_events(warehouse_id, occurred_at DESC);
+
+-- ── Trips ─────────────────────────────────────────────────────────────────────
+CREATE TABLE trips (
+  id              TEXT        PRIMARY KEY,
+  org_id          TEXT        NOT NULL REFERENCES orgs(id),
+  warehouse_id    TEXT        NOT NULL REFERENCES warehouses(id),
+  trip_code       TEXT        NOT NULL,
+  vehicle_id      TEXT        NOT NULL REFERENCES vehicles(id),
+  vehicle_reg     TEXT        NOT NULL,
+  driver_id       TEXT        NOT NULL REFERENCES drivers(id),
+  driver_name     TEXT        NOT NULL,
+  contractor_id   TEXT        REFERENCES contractors(id),
+  contractor_name TEXT,
+  status          trip_status NOT NULL DEFAULT 'planned',
+  total_stops     INT         NOT NULL DEFAULT 0,
+  confirmed_stops INT         NOT NULL DEFAULT 0,
+  departed_at     TIMESTAMPTZ,
+  planned_return  TIMESTAMPTZ,
+  returned_at     TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (org_id, trip_code)
+);
+CREATE INDEX trips_org_status ON trips(org_id, status);
+CREATE INDEX trips_wh_status  ON trips(warehouse_id, status);
+
+-- ── Trip stops ────────────────────────────────────────────────────────────────
+CREATE TABLE trip_stops (
+  id               TEXT             PRIMARY KEY,
+  org_id           TEXT             NOT NULL REFERENCES orgs(id),
+  trip_id          TEXT             NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+  stop_order       INT              NOT NULL,
+  dealer_name      TEXT             NOT NULL,
+  city             TEXT             NOT NULL,
+  invoice_count    INT              NOT NULL DEFAULT 0,
+  invoice_numbers  TEXT[]           NOT NULL DEFAULT '{}',
+  delivery_mode    delivery_mode    NOT NULL DEFAULT 'simple',
+  status           stop_status      NOT NULL DEFAULT 'pending',
+  qr_token         TEXT,
+  pin_hash         TEXT,
+  pin_attempts     INT              NOT NULL DEFAULT 0,
+  pin_locked_at    TIMESTAMPTZ,
+  confirmed_at     TIMESTAMPTZ,
+  dwell_minutes    INT,
+  face_match       face_match_res,
+  face_score       NUMERIC(5,4),
+  delivery_photo_url TEXT,
+  created_at       TIMESTAMPTZ      NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ      NOT NULL DEFAULT now()
+);
+CREATE INDEX trip_stops_trip_id ON trip_stops(trip_id);
+
+-- ── Inbound entries ───────────────────────────────────────────────────────────
+CREATE TABLE inbound_entries (
+  id             TEXT             PRIMARY KEY,
+  org_id         TEXT             NOT NULL REFERENCES orgs(id),
+  warehouse_id   TEXT             NOT NULL REFERENCES warehouses(id),
+  gate_event_id  TEXT,
+  vehicle_reg    TEXT             NOT NULL,
+  driver_name    TEXT             NOT NULL,
+  driver_id      TEXT             REFERENCES drivers(id),
+  vehicle_id     TEXT             REFERENCES vehicles(id),
+  purpose        TEXT             NOT NULL,
+  supplier_name  TEXT,
+  invoice_number TEXT,
+  entry_time     TIMESTAMPTZ      NOT NULL DEFAULT now(),
+  exit_time      TIMESTAMPTZ,
+  status         gate_sess_status NOT NULL DEFAULT 'inside',
+  guard_id       TEXT             REFERENCES users(id),
+  notes          TEXT,
+  created_at     TIMESTAMPTZ      NOT NULL DEFAULT now()
+);
+CREATE INDEX inbound_entries_wh ON inbound_entries(warehouse_id, entry_time DESC);
+
+-- ── Visitor entries ───────────────────────────────────────────────────────────
+CREATE TABLE visitor_entries (
+  id            TEXT             PRIMARY KEY,
+  org_id        TEXT             NOT NULL REFERENCES orgs(id),
+  warehouse_id  TEXT             NOT NULL REFERENCES warehouses(id),
+  gate_event_id TEXT,
+  visitor_type  visitor_type     NOT NULL DEFAULT 'visitor',
+  full_name     TEXT             NOT NULL,
+  host_name     TEXT             NOT NULL,
+  purpose       TEXT             NOT NULL,
+  pass_number   TEXT             NOT NULL,
+  vehicle_number TEXT,
+  entry_time    TIMESTAMPTZ      NOT NULL DEFAULT now(),
+  expected_exit TIMESTAMPTZ,
+  exit_time     TIMESTAMPTZ,
+  status        gate_sess_status NOT NULL DEFAULT 'inside',
+  guard_id      TEXT             REFERENCES users(id),
+  photo_url     TEXT,
+  created_at    TIMESTAMPTZ      NOT NULL DEFAULT now()
+);
+CREATE INDEX visitor_entries_wh ON visitor_entries(warehouse_id, entry_time DESC);
+
+-- ── Compliance checks ─────────────────────────────────────────────────────────
+CREATE TABLE compliance_checks (
+  id          TEXT         PRIMARY KEY,
+  org_id      TEXT         NOT NULL REFERENCES orgs(id),
+  entity_type TEXT         NOT NULL, -- driver | vehicle | contractor
+  entity_id   TEXT         NOT NULL,
+  check_type  TEXT         NOT NULL, -- dl | rc | insurance | fitness | puc | bg | contract
+  status      check_status NOT NULL,
+  expiry_date DATE,
+  checked_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  checked_by  TEXT         REFERENCES users(id),
+  notes       TEXT,
+  metadata    JSONB        NOT NULL DEFAULT '{}'
+);
+CREATE INDEX compliance_entity    ON compliance_checks(entity_id, check_type, checked_at DESC);
+CREATE INDEX compliance_org_expiry ON compliance_checks(org_id, expiry_date);
+
+-- ── Verify attempts (DL, face, OCR) ──────────────────────────────────────────
+CREATE TABLE verify_attempts (
+  id           TEXT        PRIMARY KEY,
+  org_id       TEXT        NOT NULL REFERENCES orgs(id),
+  attempt_type TEXT        NOT NULL, -- dl | face | ocr
+  entity_id    TEXT,
+  input_data   JSONB       NOT NULL DEFAULT '{}',
+  result       JSONB       NOT NULL DEFAULT '{}',
+  success      BOOLEAN     NOT NULL,
+  provider     TEXT,
+  duration_ms  INT,
+  requested_by TEXT        REFERENCES users(id),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX verify_attempts_entity ON verify_attempts(entity_id, created_at DESC);
+
+-- ── Alerts ────────────────────────────────────────────────────────────────────
+CREATE TABLE alerts (
+  id              TEXT           PRIMARY KEY,
+  org_id          TEXT           NOT NULL REFERENCES orgs(id),
+  warehouse_id    TEXT           REFERENCES warehouses(id),
+  type            alert_type     NOT NULL,
+  severity        alert_severity NOT NULL,
+  status          alert_status   NOT NULL DEFAULT 'open',
+  message         TEXT           NOT NULL,
+  entity_type     TEXT           NOT NULL,
+  entity_id       TEXT           NOT NULL,
+  metadata        JSONB          NOT NULL DEFAULT '{}',
+  created_at      TIMESTAMPTZ    NOT NULL DEFAULT now(),
+  acknowledged_at TIMESTAMPTZ,
+  acknowledged_by TEXT           REFERENCES users(id),
+  resolved_at     TIMESTAMPTZ,
+  resolved_by     TEXT           REFERENCES users(id)
+);
+CREATE INDEX alerts_org_status ON alerts(org_id, status, created_at DESC);
+CREATE INDEX alerts_wh_status  ON alerts(warehouse_id, status);
+CREATE INDEX alerts_entity     ON alerts(entity_id, type);
+
+-- ── Incidents ─────────────────────────────────────────────────────────────────
+CREATE TABLE incidents (
+  id                   TEXT            PRIMARY KEY,
+  org_id               TEXT            NOT NULL REFERENCES orgs(id),
+  warehouse_id         TEXT            REFERENCES warehouses(id),
+  type                 incident_type   NOT NULL,
+  description          TEXT            NOT NULL,
+  status               incident_status NOT NULL DEFAULT 'open',
+  severity             alert_severity  NOT NULL DEFAULT 'warning',
+  assigned_to          TEXT            REFERENCES users(id),
+  sla_deadline         TIMESTAMPTZ     NOT NULL,
+  raised_by            TEXT            NOT NULL REFERENCES users(id),
+  linked_trip_id       TEXT            REFERENCES trips(id),
+  linked_alert_id      TEXT            REFERENCES alerts(id),
+  linked_gate_event_id TEXT,
+  evidence_urls        TEXT[]          NOT NULL DEFAULT '{}',
+  resolution_note      TEXT,
+  closed_at            TIMESTAMPTZ,
+  created_at           TIMESTAMPTZ     NOT NULL DEFAULT now(),
+  updated_at           TIMESTAMPTZ     NOT NULL DEFAULT now()
+);
+CREATE INDEX incidents_org_status ON incidents(org_id, status, created_at DESC);
+CREATE INDEX incidents_sla        ON incidents(sla_deadline)
+  WHERE status NOT IN ('resolved', 'closed');
+
+-- ── Incident events (append-only) ─────────────────────────────────────────────
+CREATE TABLE incident_events (
+  id          TEXT        PRIMARY KEY,
+  incident_id TEXT        NOT NULL REFERENCES incidents(id),
+  org_id      TEXT        NOT NULL REFERENCES orgs(id),
+  event_type  TEXT        NOT NULL,
+  actor_id    TEXT        REFERENCES users(id),
+  actor_name  TEXT        NOT NULL,
+  payload     JSONB       NOT NULL DEFAULT '{}',
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX incident_events_incident ON incident_events(incident_id, occurred_at);
+
+-- ── Escalation policies ───────────────────────────────────────────────────────
+CREATE TABLE escalation_policies (
+  id            TEXT           PRIMARY KEY,
+  org_id        TEXT           NOT NULL REFERENCES orgs(id),
+  name          TEXT           NOT NULL,
+  incident_type incident_type,
+  severity      alert_severity,
+  sla_minutes   INT            NOT NULL,
+  levels        JSONB          NOT NULL DEFAULT '[]',
+  is_active     BOOLEAN        NOT NULL DEFAULT true,
+  created_at    TIMESTAMPTZ    NOT NULL DEFAULT now()
+);
+CREATE INDEX escalation_policies_org ON escalation_policies(org_id);
+
+-- ── Incident escalations ──────────────────────────────────────────────────────
+CREATE TABLE incident_escalations (
+  id              TEXT        PRIMARY KEY,
+  incident_id     TEXT        NOT NULL REFERENCES incidents(id),
+  policy_id       TEXT        REFERENCES escalation_policies(id),
+  level           INT         NOT NULL DEFAULT 0,
+  notified_users  TEXT[]      NOT NULL DEFAULT '{}',
+  channels        TEXT[]      NOT NULL DEFAULT '{}',
+  triggered_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  acknowledged_at TIMESTAMPTZ
+);
+CREATE INDEX incident_escalations_incident ON incident_escalations(incident_id);
+CREATE INDEX incident_escalations_unack    ON incident_escalations(triggered_at)
+  WHERE acknowledged_at IS NULL;
+
+-- ── Audit events (append-only, SHA-256 hash chain) ────────────────────────────
+-- prev_hash chains each org's events; hash = sha256(id|org_id|actor_id|action|
+-- resource_type|resource_id|payload_json|prev_hash).  "genesis" sentinel for first event.
+CREATE TABLE audit_events (
+  id            TEXT        PRIMARY KEY,
+  org_id        TEXT        NOT NULL REFERENCES orgs(id),
+  actor_id      TEXT,
+  actor_role    user_role,
+  action        TEXT        NOT NULL,
+  resource_type TEXT        NOT NULL,
+  resource_id   TEXT,
+  warehouse_id  TEXT,
+  ip            TEXT,
+  user_agent    TEXT,
+  payload       JSONB       NOT NULL DEFAULT '{}',
+  prev_hash     TEXT        NOT NULL,
+  hash          TEXT        NOT NULL,
+  occurred_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+) PARTITION BY RANGE (occurred_at);
+
+CREATE TABLE audit_events_2025 PARTITION OF audit_events
+  FOR VALUES FROM ('2025-01-01') TO ('2026-01-01');
+CREATE TABLE audit_events_2026 PARTITION OF audit_events
+  FOR VALUES FROM ('2026-01-01') TO ('2027-01-01');
+CREATE TABLE audit_events_2027 PARTITION OF audit_events
+  FOR VALUES FROM ('2027-01-01') TO ('2028-01-01');
+CREATE TABLE audit_events_default PARTITION OF audit_events DEFAULT;
+
+CREATE INDEX audit_events_org_time  ON audit_events(org_id, occurred_at DESC);
+CREATE INDEX audit_events_actor     ON audit_events(actor_id, occurred_at DESC);
+CREATE INDEX audit_events_resource  ON audit_events(resource_type, resource_id, occurred_at DESC);
+
+-- ── Data exports ──────────────────────────────────────────────────────────────
+CREATE TABLE data_exports (
+  id              TEXT        PRIMARY KEY,
+  org_id          TEXT        NOT NULL REFERENCES orgs(id),
+  requested_by    TEXT        NOT NULL REFERENCES users(id),
+  export_type     TEXT        NOT NULL,
+  date_from       DATE,
+  date_to         DATE,
+  filter_params   JSONB       NOT NULL DEFAULT '{}',
+  status          TEXT        NOT NULL DEFAULT 'pending',
+  file_url        TEXT,
+  file_size_bytes BIGINT,
+  record_count    INT,
+  error_message   TEXT,
+  expires_at      TIMESTAMPTZ,
+  requested_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completed_at    TIMESTAMPTZ
+);
+CREATE INDEX data_exports_org ON data_exports(org_id, requested_at DESC);
+
+-- ── DPDP / GDPR subject requests ──────────────────────────────────────────────
+CREATE TABLE subject_requests (
+  id            TEXT             PRIMARY KEY,
+  org_id        TEXT             NOT NULL REFERENCES orgs(id),
+  subject_email TEXT             NOT NULL, -- AES-256-GCM encrypted
+  request_type  subj_req_type    NOT NULL,
+  status        subj_req_status  NOT NULL DEFAULT 'pending',
+  notes         TEXT,
+  handled_by    TEXT             REFERENCES users(id),
+  response_url  TEXT,
+  submitted_at  TIMESTAMPTZ      NOT NULL DEFAULT now(),
+  due_at        TIMESTAMPTZ      NOT NULL, -- 30 days per DPDP 2023
+  completed_at  TIMESTAMPTZ
+);
+CREATE INDEX subject_requests_org ON subject_requests(org_id, status);
+
+-- ── API keys ──────────────────────────────────────────────────────────────────
+CREATE TABLE api_keys (
+  id           TEXT        PRIMARY KEY,
+  org_id       TEXT        NOT NULL REFERENCES orgs(id),
+  name         TEXT        NOT NULL,
+  key_hash     TEXT        NOT NULL UNIQUE, -- sha256(key)
+  key_prefix   TEXT        NOT NULL,
+  scopes       TEXT[]      NOT NULL DEFAULT '{}',
+  last_used_at TIMESTAMPTZ,
+  expires_at   TIMESTAMPTZ,
+  revoked_at   TIMESTAMPTZ,
+  created_by   TEXT        REFERENCES users(id),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX api_keys_org ON api_keys(org_id);
+
+-- ── Webhook endpoints ─────────────────────────────────────────────────────────
+CREATE TABLE webhook_endpoints (
+  id              TEXT        PRIMARY KEY,
+  org_id          TEXT        NOT NULL REFERENCES orgs(id),
+  url             TEXT        NOT NULL,
+  secret_hash     TEXT        NOT NULL,
+  events          TEXT[]      NOT NULL DEFAULT '{}',
+  is_active       BOOLEAN     NOT NULL DEFAULT true,
+  failure_count   INT         NOT NULL DEFAULT 0,
+  last_success_at TIMESTAMPTZ,
+  last_failure_at TIMESTAMPTZ,
+  created_by      TEXT        REFERENCES users(id),
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX webhook_endpoints_org ON webhook_endpoints(org_id);
+
+-- ── Rate limit counters (sliding window, keyed by identifier + bucket) ────────
+CREATE TABLE rate_limit_counters (
+  key          TEXT        NOT NULL,
+  window_start TIMESTAMPTZ NOT NULL,
+  count        INT         NOT NULL DEFAULT 0,
+  PRIMARY KEY (key, window_start)
+);
+CREATE INDEX rate_limit_counters_expiry ON rate_limit_counters(window_start);
+
+-- ── Idempotency keys ──────────────────────────────────────────────────────────
+CREATE TABLE idempotency_keys (
+  id             TEXT        PRIMARY KEY,
+  org_id         TEXT        NOT NULL,
+  key            TEXT        NOT NULL,
+  request_hash   TEXT        NOT NULL,
+  response_status INT,
+  response_body  JSONB,
+  expires_at     TIMESTAMPTZ NOT NULL,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (org_id, key)
+);
+CREATE INDEX idempotency_keys_expiry ON idempotency_keys(expires_at);
+
+-- ── Migration tracking ────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS _migrations (
+  id          SERIAL      PRIMARY KEY,
+  filename    TEXT        NOT NULL UNIQUE,
+  applied_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);

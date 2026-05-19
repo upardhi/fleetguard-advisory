@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
-import TopBar from "@/app/_components/TopBar";
+import { TopBar } from "@/app/_components/TopBar";
 import AdvisoryCard from "@/app/_components/AdvisoryCard";
 import { MOCK_ADVISORIES } from "@/app/_lib/mockData";
 import { BrainCircuit, Zap, Clock, CheckCircle } from "lucide-react";

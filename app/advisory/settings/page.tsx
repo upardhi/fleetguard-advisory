@@ -5,7 +5,7 @@ import {
   Bell, Shield, Globe, Users, LogOut, User,
   KeyRound, Moon, ExternalLink, ArrowLeft,
 } from "lucide-react";
-import TopBar from "@/app/_components/TopBar";
+import { TopBar } from "@/app/_components/TopBar";
 import { useAdvisory } from "@/app/_contexts/AdvisoryContext";
 
 const ROLE_LABELS: Record<string, string> = {

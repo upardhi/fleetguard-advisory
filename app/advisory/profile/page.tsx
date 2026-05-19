@@ -6,7 +6,7 @@ import {
   User, Mail, Building2, Warehouse, Shield,
   ExternalLink, LogOut, ArrowLeft, KeyRound,
 } from "lucide-react";
-import TopBar from "@/app/_components/TopBar";
+import { TopBar } from "@/app/_components/TopBar";
 import { useAdvisory } from "@/app/_contexts/AdvisoryContext";
 
 const ROLE_LABELS: Record<string, string> = {

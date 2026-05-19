@@ -1,18 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyToken } from "@/app/_server/auth/jwt";
+import { getUser } from "@/app/_server/auth/getUser";
 import { revokeSession } from "@/app/_server/auth/sessions";
+import { writeAuditEvent } from "@/app/_server/db/audit";
+import { applySecurityHeaders } from "@/app/_server/security/headers";
 
-export async function POST(req: NextRequest) {
-  try {
-    const token = req.cookies.get("fg_access")?.value;
-    if (token) {
-      const claims = await verifyToken(token);
-      await revokeSession(claims.sid);
-    }
-  } catch { /* already expired or invalid — fine */ }
+export async function POST(req: NextRequest): Promise<NextResponse> {
+  const user = await getUser(req);
+
+  if (user) {
+    await Promise.all([
+      revokeSession(user.sid),
+      writeAuditEvent({
+        orgId: user.org,
+        actorId: user.sub,
+        actorRole: user.role,
+        action: "logout",
+        resourceType: "session",
+        resourceId: user.sid,
+        ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),
+      }),
+    ]);
+  }
 
   const res = NextResponse.json({ ok: true });
-  res.cookies.set("fg_access", "", { maxAge: 0, path: "/" });
-  res.cookies.set("fg_refresh", "", { maxAge: 0, path: "/" });
-  return res;
+  const base = { httpOnly: true, secure: process.env.NODE_ENV === "production", path: "/" };
+  res.cookies.set("fg_access",  "", { ...base, maxAge: 0 });
+  res.cookies.set("fg_refresh", "", { ...base, maxAge: 0 });
+  return applySecurityHeaders(res);
 }

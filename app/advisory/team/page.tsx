@@ -5,7 +5,7 @@ import {
   Users, Warehouse, Search, ArrowLeft,
   ExternalLink, Building2, UserCheck, UserX,
 } from "lucide-react";
-import TopBar from "@/app/_components/TopBar";
+import { TopBar } from "@/app/_components/TopBar";
 import { useAdvisory } from "@/app/_contexts/AdvisoryContext";
 
 interface TeamMember {

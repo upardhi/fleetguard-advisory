@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
-export default function Root() {
+
+export default function Home() {
   redirect("/login");
 }
