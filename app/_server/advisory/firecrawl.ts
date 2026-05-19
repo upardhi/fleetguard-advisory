@@ -4,6 +4,8 @@
  * Docs: https://docs.firecrawl.dev
  */
 
+import { isAllowedNewsUrl } from "@/lib/source-filter";
+
 const API_BASE = "https://api.firecrawl.dev/v1";
 
 function firecrawlKey(): string {
@@ -25,14 +27,41 @@ interface FcSearchResponse {
 }
 
 /** Search the web for news matching `query`. Returns up to `limit` hits. */
-export async function firecrawlSearch(query: string, limit = 5): Promise<SearchHit[]> {
+export async function firecrawlSearch(query: string, limit = 20): Promise<SearchHit[]> {
+
+  const enhancedQuery = `
+${query}
+
+(
+  traffic restriction
+  OR traffic advisory
+  OR road closure
+  OR protest
+  OR morcha
+  OR rally
+  OR VIP movement
+  OR CM visit
+  OR PM visit
+  OR strike
+  OR public gathering
+  OR congestion
+  OR route diversion
+  OR metro disruption
+  OR railway maintenance
+)
+
+`;
   const res = await fetch(`${API_BASE}/search`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${firecrawlKey()}`,
     },
-    body: JSON.stringify({ query, limit, tbs: "qdr:w" }), // qdr:w = past week
+    body: JSON.stringify({
+      query: enhancedQuery,
+      limit,
+      tbs: "qdr:w"
+    })
   });
 
   if (!res.ok) {
@@ -42,12 +71,12 @@ export async function firecrawlSearch(query: string, limit = 5): Promise<SearchH
 
   const data = (await res.json()) as FcSearchResponse;
   if (data.error) throw new Error(`Firecrawl search: ${data.error}`);
-
-  return (data.data ?? []).map((d) => ({
-    url: d.url,
-    title: d.title ?? "",
-    description: d.description ?? "",
-  }));
+  return (data.data ?? [])
+    .map((d) => ({
+      url: d.url,
+      title: d.title ?? "",
+      description: d.description ?? "",
+    }));
 }
 
 interface FcScrapeResponse {

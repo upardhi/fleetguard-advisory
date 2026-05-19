@@ -120,31 +120,14 @@ export const PAST_QUERY_TEMPLATES = [
 ];
 
 export const FUTURE_QUERY_TEMPLATES = [
-  '{location} traffic advisory next 7 days',
-  '{location} road closure next 7 days',
-  '{location} planned diversion',
-  '{location} rally this week',
-  '{location} morcha this week',
-  '{location} protest this week',
-  '{location} bandh this week',
-  '{location} CM visit',
-  '{location} PM visit',
-  '{location} minister visit',
-  '{location} VIP movement',
-  '{location} political rally',
-  '{location} election campaign',
-  '{location} public gathering',
-  '{location} procession',
-  '{location} yatra',
-  '{location} shobhayatra',
-  '{location} festival traffic',
-  '{location} event this weekend',
-  '{location} heavy traffic expected',
-  '{location} railway maintenance',
-  '{location} metro shutdown',
-  '{location} travel advisory',
-  '{location} security deployment',
-  '{location} route diversion',
+  '{location} traffic advisory May 2026',
+  '{location} road block diversion upcoming',
+  '{location} bandh morcha protest this week',
+  '{location} VIP convoy PM CM visit',
+  '{location} rally procession yatra traffic',
+  '{location} road closed route diversion',
+  '{location} traffic restriction advisory',
+  '{location} strike agitation road block',
 ];
 
 export const RSS_SOURCES = [
@@ -164,6 +147,14 @@ export const INDIAN_STATES = [
 ];
 
 export const MAX_ARTICLES_TO_SCRAPE = 20;
+// Add this new constant:
+export const TRAFFIC_CATEGORIES = new Set([
+  'traffic_jam', 'road_block', 'highway_blockage', 'protest',
+  'bandh', 'morcha', 'rally', 'vip_movement', 'religious_procession',
+  'festival_crowd', 'election_rally', 'transport_disruption',
+  'public_gathering', 'strike', 'curfew',
+]);
+
 export const REQUEST_TIMEOUT_MS = 15000;
 export const SCRAPE_TIMEOUT_MS = 20000;
 export const MAX_PARALLEL_SCRAPES = 5;

@@ -97,7 +97,6 @@ export async function getTripById(id: string): Promise<Trip | null> {
 }
 
 export async function getTripsListForWarehouse(warehouseId: string): Promise<Trip[]> {
-  debugger;
   if (config.tripSource === "mock") {
     return mockTrips.filter((t) => t.warehouseId === warehouseId);
   }

@@ -8,111 +8,44 @@ export function buildSearchQueries(
   const queries: SearchQuery[] = [];
   const loc = location.trim();
 
-  // Past/current queries
-  const pastTemplates = PAST_QUERY_TEMPLATES;
-  pastTemplates.forEach((template) => {
-    const query = template.replace('{location}', loc);
-    queries.push({ query, type: 'past' });
+  // Only future/traffic queries - no past queries at all
+  const currentDate = new Date();
+  const monthYear = currentDate.toLocaleString('en-IN', { month: 'long', year: 'numeric' }); // "May 2026"
+
+  FUTURE_QUERY_TEMPLATES.forEach((template) => {
+    // queries.push({ query: template.replace('{location}', loc), type: 'future' });
+    queries.push({ query: `${template.replace('{location}', loc)} ${monthYear}`, type: 'future' });
   });
 
-  // Future queries
-  const futureTemplates = FUTURE_QUERY_TEMPLATES;
-  futureTemplates.forEach((template) => {
-    const query = template.replace('{location}', loc);
-    queries.push({ query, type: 'future' });
+  // Category-specific only if traffic-related
+  const TRAFFIC_CATS: IncidentCategory[] = [
+    'bandh', 'morcha', 'rally', 'protest', 'vip_movement',
+    'road_block', 'highway_blockage', 'religious_procession',
+    'festival_crowd', 'election_rally',
+  ];
+
+  const targetCats = categories?.length ? categories.filter(c => TRAFFIC_CATS.includes(c)) : TRAFFIC_CATS;
+
+  targetCats.forEach((cat) => {
+    const keywords = CATEGORY_KEYWORDS[cat];
+    if (keywords.length > 0) {
+      queries.push({
+        query: `
+          ${loc}
+          ${keywords[0]}
+          India
+          next 7 days
+          upcoming
+          scheduled
+          traffic advisory
+          `,
+        type: 'future',
+        category: cat,
+      });
+    }
   });
 
-  // Category-specific queries
-  if (categories && categories.length > 0) {
-    categories.forEach((cat) => {
-      const keywords = CATEGORY_KEYWORDS[cat];
-      if (keywords.length > 0) {
-        const kw = keywords[0];
-        queries.push({
-          query: `${loc} ${kw} latest`,
-          type: 'past',
-          category: cat,
-        });
-        queries.push({
-          query: `${loc} ${kw} this week OR tomorrow OR upcoming OR scheduled`,
-          type: 'future',
-          category: cat,
-        });
-      }
-    });
-  }
-
-  queries.push({
-    query: `${loc} traffic restrictions`,
-    type: 'future',
-  });
-
-  queries.push({
-    query: `${loc} route diversion`,
-    type: 'future',
-  });
-
-  queries.push({
-    query: `${loc} police advisory`,
-    type: 'future',
-  });
-
-  queries.push({
-    query: `${loc} avoid travel`,
-    type: 'future',
-  });
-
-  queries.push({
-    query: `${loc} congestion expected`,
-    type: 'future',
-  });
-
-  queries.push({
-    query: `${loc} CM visit`,
-    type: 'future',
-  });
-
-  queries.push({
-    query: `${loc} PM visit`,
-    type: 'future',
-  });
-
-  queries.push({
-    query: `${loc} minister visit`,
-    type: 'future',
-  });
-
-  queries.push({
-    query: `${loc} VIP movement`,
-    type: 'future',
-  });
-
-  queries.push({
-    query: `${loc} convoy movement`,
-    type: 'future',
-  });
-
-  queries.push({
-    query: `${loc} मोर्चा`,
-    type: 'future',
-  });
-
-  queries.push({
-    query: `${loc} यात्रा`,
-    type: 'future',
-  });
-
-  queries.push({
-    query: `${loc} बंद`,
-    type: 'future',
-  });
-
-  queries.push({
-    query: `${loc} सभा`,
-    type: 'future',
-  });
-
-  // Remove duplicates
+  // Deduplicate
   const seen = new Set<string>();
   return queries.filter((q) => {
     if (seen.has(q.query)) return false;

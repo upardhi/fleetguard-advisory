@@ -98,3 +98,45 @@ export function detectSourceType(url: string): SourceType {
   if (domain.includes('rss') || domain.includes('feed')) return 'rss';
   return 'unknown';
 }
+
+
+export async function searchWithFirecrawl(query: string): Promise<ScrapedContent[]> {
+  if (!process.env.FIRECRAWL_API_KEY) return [];
+
+  try {
+    const response = await fetch('https://api.firecrawl.dev/v1/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}`,
+      },
+      body: JSON.stringify({
+        query,
+        limit: 5,
+        scrapeOptions: { formats: ['markdown'] },
+      }),
+    });
+
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    const results: ScrapedContent[] = [];
+
+    for (const item of data.data || []) {
+      if (item.markdown && item.markdown.length > 100) {
+        results.push({
+          url: item.url || '',
+          title: item.title || '',
+          text: item.markdown.slice(0, 5000),
+          publishedAt: item.publishedAt || null,
+          images: [],
+          sourceType: detectSourceType(item.url || ''),
+        });
+      }
+    }
+    return results;
+  } catch (err) {
+    console.warn('Firecrawl search failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}

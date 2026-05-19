@@ -20,7 +20,7 @@ import { segmentSearchQuery } from "./decompose";
 
 const MAX_SEGMENTS_PER_RUN = 40;
 const MAX_NEWS_PER_RUN = 30;
-const SEARCH_HITS_PER_SEGMENT = 4;
+const SEARCH_HITS_PER_SEGMENT = 20;
 
 export interface PipelineResult {
   runId: string;

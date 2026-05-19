@@ -123,12 +123,11 @@ export async function parseIncidentFromScrapedContent(
   queryType: 'past' | 'future' = 'past'
 ): Promise<Incident | null> {
   const combinedText = `${content.title} ${content.text}`;
-  debugger;
   // Parse date
   const pubDate = content.publishedAt ? parseDate(content.publishedAt) : null;
   const textDate = extractDateFromText(content.text);
   const eventDate = extractEventDate(combinedText);
-
+  
   const parsedEventDate =
     eventDate.startDate
       ? new Date(eventDate.startDate)
@@ -140,9 +139,9 @@ export async function parseIncidentFromScrapedContent(
     textDate;
 
   // Check time window
-  if (!isWithinTimeWindow(incidentDate, pastHours, futureHours)) {
-    return null;
-  }
+  // if (!isWithinTimeWindow(incidentDate, pastHours, futureHours)) {
+  //   return null;
+  // }
 
   let aiData = null;
 
@@ -218,7 +217,7 @@ export async function parseIncidentFromRSSItem(
   queryType: 'past' | 'future' = 'past'
 ): Promise<Incident | null> {
   const combinedText = `${item.title} ${item.description} ${item.content || ''}`;
-
+  debugger;
   const pubDate = item.pubDate ? parseDate(item.pubDate) : null;
 
   const eventDate = extractEventDate(combinedText);
@@ -230,6 +229,11 @@ export async function parseIncidentFromRSSItem(
 
   const finalDate =
     parsedEventDate || pubDate;
+
+  if (pubDate) {
+    const ageMs = Date.now() - pubDate.getTime();
+    if (ageMs > 48 * 60 * 60 * 1000) return null; // skip old articles entirely
+  }
 
   if (!isWithinTimeWindow(finalDate, pastHours, futureHours)) {
     return null;

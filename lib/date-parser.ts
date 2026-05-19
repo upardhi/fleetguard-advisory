@@ -167,7 +167,7 @@ export interface ParsedEventDate {
 export function extractEventDate(text: string): ParsedEventDate {
   try {
     const results = chrono.parse(text);
-    debugger;
+    
     if (!results || results.length === 0) {
       return {
         rawText: null,
