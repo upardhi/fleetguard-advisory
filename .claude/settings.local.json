@@ -110,7 +110,10 @@
       "Bash(findstr /i \"google\\\\|firecrawl\\\\|openai\")",
       "Bash(Get-Content .env)",
       "Bash(Select-String -Pattern \"GOOGLE|FIRECRAWL|OPENAI\")",
-      "PowerShell(cd \"C:\\\\Programming\\\\itc\\\\fleetguard-advisory\"; $env:SUPABASE_POOLER_URL = \\(Get-Content .env.local | Select-String \"SUPABASE_POOLER_URL\" | ForEach-Object { \\($_ -split \"=\", 2\\)[1] }\\); node -e \"const p=require\\('postgres'\\);const sql=p\\('$env:SUPABASE_POOLER_URL'\\);sql\\\\``SELECT email,role FROM fg_users WHERE role='company_admin' LIMIT 5\\\\``.then\\(r=>{console.log\\(JSON.stringify\\(r\\)\\);process.exit\\(\\)}\\).catch\\(e=>{console.error\\(e.message\\);process.exit\\(1\\)}\\)\")"
+      "PowerShell(cd \"C:\\\\Programming\\\\itc\\\\fleetguard-advisory\"; $env:SUPABASE_POOLER_URL = \\(Get-Content .env.local | Select-String \"SUPABASE_POOLER_URL\" | ForEach-Object { \\($_ -split \"=\", 2\\)[1] }\\); node -e \"const p=require\\('postgres'\\);const sql=p\\('$env:SUPABASE_POOLER_URL'\\);sql\\\\``SELECT email,role FROM fg_users WHERE role='company_admin' LIMIT 5\\\\``.then\\(r=>{console.log\\(JSON.stringify\\(r\\)\\);process.exit\\(\\)}\\).catch\\(e=>{console.error\\(e.message\\);process.exit\\(1\\)}\\)\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Programming\\\\itc\\\\fleetguard-advisory\\\\app\\\\advisory\" -Recurse -Include \"*.tsx\", \"*.ts\", \"*.json\")",
+      "Bash(Select-Object FullName)",
+      "Bash(Sort-Object FullName)"
     ]
   }
 }

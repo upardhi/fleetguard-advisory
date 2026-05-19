@@ -393,13 +393,9 @@ const ADVISORY_NAV: Section[] = [
     ],
   },
   {
-    heading: "Pre-Planning",
+    heading: "Corridors",
     items: [
-      { href: "/advisory/trips",      label: "Trips",             icon: "truck" },
-      { href: "/advisory/planner",    label: "Dispatch Planner",  icon: "navigation" },
-      { href: "/advisory/planned",    label: "Planned Dispatches",icon: "listChecks" },
-      { href: "/advisory/corridors",  label: "Corridor Watch",    icon: "mapPin" },
-      { href: "/advisory/calendar",   label: "Events Calendar",   icon: "calendar" },
+      { href: "/advisory/planned", label: "Watched Corridors", icon: "listChecks" },
     ],
   },
   {

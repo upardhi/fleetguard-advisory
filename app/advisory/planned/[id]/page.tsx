@@ -324,7 +324,16 @@ export default function PlannedRouteDetailPage({
     .filter((s) => s.has_disruption && s.disruption_eta_hours)
     .reduce((sum, s) => sum + (s.disruption_eta_hours ?? 0), 0);
 
-  const rec = recommendedAction(route.max_risk_level);
+  // Compute from segments (more accurate than route-level snapshot)
+  const disruptedSegments = segments.filter((s) => s.has_disruption && s.disruption_risk_level);
+  const disruptedCount = disruptedSegments.length;
+  const riskOrder: Record<string, number> = { critical: 5, high: 4, medium: 3, low: 2, safe: 1 };
+  const computedMaxRisk: RiskLevel = disruptedSegments.reduce<RiskLevel>((best, s) => {
+    const sl = s.disruption_risk_level as RiskLevel;
+    return (riskOrder[sl] ?? 0) > (riskOrder[best] ?? 0) ? sl : best;
+  }, "safe");
+
+  const rec = recommendedAction(computedMaxRisk);
   const RecIcon = rec.icon;
   const hasIntelRun = segments.some((s) => s.last_checked_at !== null);
 
@@ -479,8 +488,8 @@ export default function PlannedRouteDetailPage({
                 />
                 <SummaryCard
                   label="Disrupted"
-                  value={String(route.disruption_count)}
-                  cls={route.disruption_count > 0 ? "text-red-700" : "text-green-700"}
+                  value={String(disruptedCount)}
+                  cls={disruptedCount > 0 ? "text-red-700" : "text-green-700"}
                 />
                 <SummaryCard
                   label="Total ETA Impact"
