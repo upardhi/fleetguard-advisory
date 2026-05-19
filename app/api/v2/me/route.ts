@@ -17,7 +17,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const [user] = await db`
     SELECT id, org_id, email, full_name, role, mobile,
-           warehouse_id, warehouse_ids, is_active, mfa_required, force_password_reset,
+           warehouse_id, is_active, mfa_required,
            created_at, updated_at
     FROM   users
     WHERE  id = ${claims.sub}
@@ -35,11 +35,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       displayName:          user.full_name,
       role:                 normalizeRole(user.role as string),
       warehouseId:          user.warehouse_id ?? "",
-      warehouseIds:         (user.warehouse_ids as string[] | null) ?? [],
+      warehouseIds:         [],
       orgId:                user.org_id,
       isActive:             user.is_active,
       mfaRequired:          user.mfa_required,
-      forcePasswordReset:   user.force_password_reset ?? false,
+      forcePasswordReset:   false,
       createdAt:            user.created_at,
       updatedAt:            user.updated_at,
     }),

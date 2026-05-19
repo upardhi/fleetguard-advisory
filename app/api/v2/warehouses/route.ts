@@ -35,13 +35,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const warehouses = await db`
     SELECT w.id, w.org_id, w.name, w.code, w.city, w.state, w.region, w.address, w.lat, w.lng, w.is_active, w.created_at,
-           COUNT(DISTINCT ge.id) FILTER (WHERE ge.occurred_at > now() - INTERVAL '24 hours') AS events_24h,
-           COUNT(DISTINCT a.id) FILTER (WHERE a.status = 'open') AS open_alerts
+           0 AS events_24h,
+           0 AS open_alerts
     FROM   warehouses w
-    LEFT   JOIN gate_events ge ON ge.warehouse_id = w.id
-    LEFT   JOIN alerts a ON a.warehouse_id = w.id
     WHERE  w.org_id = ${targetOrgId} AND w.is_active = true
-    GROUP  BY w.id
     ORDER  BY w.name
   `;
 

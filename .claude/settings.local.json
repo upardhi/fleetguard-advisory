@@ -96,7 +96,10 @@
       "Bash(curl -s http://localhost:3000/api/advisory/v1/trips)",
       "Bash(python -m json.tool)",
       "Bash(curl -si http://localhost:3000/advisory/trips)",
-      "Bash(SUPABASE_DB_URL='postgresql://postgres.iexnandsthtdotgqlahf:znh7zLSt.2axXHd@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode=require' npx tsx -e ' *)"
+      "Bash(SUPABASE_DB_URL='postgresql://postgres.iexnandsthtdotgqlahf:znh7zLSt.2axXHd@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode=require' npx tsx -e ' *)",
+      "PowerShell(Stop-Process -Id 13916 -Force -ErrorAction SilentlyContinue)",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/v2/login -H 'Content-Type: application/json' -d '{\"email\":\"admin@fleetguard.itc\",\"password\":\"Admin@1234\"}' -c /tmp/fg_cookies.txt -b /tmp/fg_cookies.txt -w '\\\\nSTATUS:%{http_code}')",
+      "Bash(curl -si -b /tmp/fg_cookies.txt http://localhost:3000/api/v2/me)"
     ]
   }
 }
