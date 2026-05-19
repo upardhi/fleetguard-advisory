@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { TopBar } from "@/app/_components/TopBar";
 import { StatCard } from "@/app/_components/StatCard";
 import RiskBadge from "@/app/_components/RiskBadge";
@@ -22,6 +22,14 @@ interface RegionRisk {
   keyIssue: string;
 }
 
+interface CorridorRoute {
+  corridorId: string;
+  corridorName: string;
+  origin: string;
+  destination: string;
+  points: { lat: number; lng: number; risk: string; name: string }[];
+}
+
 interface Stats {
   totalDisruptions: number;
   criticalAlerts: number;
@@ -36,32 +44,141 @@ interface IntelligenceData {
   disruptions: Disruption[];
   advisories: Advisory[];
   corridors: Array<{ id: string; name: string; origin: string; destination: string; max_risk_level: string | null }>;
+  corridorRoutes: CorridorRoute[];
   regionRisks: RegionRisk[];
   hasData: boolean;
   lastUpdated: string;
 }
 
-// SVG positions for known Indian states
-const STATE_SVG: Record<string, { cx: number; cy: number; labelX: number; labelY: number; labelY2: number }> = {
-  "Haryana":       { cx: 228, cy: 120, labelX: 247, labelY: 118, labelY2: 128 },
-  "Odisha":        { cx: 340, cy: 310, labelX: 358, labelY: 308, labelY2: 318 },
-  "Maharashtra":   { cx: 185, cy: 295, labelX: 115, labelY: 293, labelY2: 303 },
-  "Karnataka":     { cx: 215, cy: 400, labelX: 228, labelY: 398, labelY2: 408 },
-  "Rajasthan":     { cx: 160, cy: 190, labelX: 108, labelY: 188, labelY2: 198 },
-  "Uttar Pradesh": { cx: 290, cy: 175, labelX: 303, labelY: 173, labelY2: 183 },
-  "Assam":         { cx: 388, cy: 165, labelX: 363, labelY: 150, labelY2: 160 },
-  "Tamil Nadu":    { cx: 245, cy: 470, labelX: 257, labelY: 468, labelY2: 478 },
-  "Gujarat":       { cx: 130, cy: 235, labelX: 108, labelY: 228, labelY2: 238 },
-  "West Bengal":   { cx: 360, cy: 240, labelX: 368, labelY: 238, labelY2: 248 },
-  "Madhya Pradesh":{ cx: 235, cy: 235, labelX: 210, labelY: 210, labelY2: 220 },
-  "Telangana":     { cx: 255, cy: 355, labelX: 268, labelY: 353, labelY2: 363 },
+// ── Leaflet risk map ──────────────────────────────────────────────
+
+const RISK_COLOR_MAP: Record<string, string> = {
+  critical: "#ef4444",
+  high:     "#f97316",
+  medium:   "#eab308",
+  low:      "#22c55e",
+  safe:     "#86efac",
 };
 
-const RISK_FILL: Record<string, string>   = { critical: "rgba(239,68,68,0.2)",   high: "rgba(249,115,22,0.2)",  medium: "rgba(245,158,11,0.2)", low: "rgba(34,197,94,0.15)",   safe: "rgba(34,197,94,0.1)" };
-const RISK_STROKE: Record<string, string> = { critical: "#ef4444",               high: "#f97316",               medium: "#f59e0b",              low: "#22c55e",                safe: "#15803d" };
-const RISK_DOT_C: Record<string, string>  = { critical: "#ef4444",               high: "#f97316",               medium: "#f59e0b",              low: "#22c55e",                safe: "#15803d" };
-const RISK_LABEL: Record<string, string>  = { critical: "#991b1b",               high: "#7c2d12",               medium: "#78350f",              low: "#14532d",                safe: "#14532d" };
-const RISK_TEXT: Record<string, string>   = { critical: "#dc2626",               high: "#ea580c",               medium: "#d97706",              low: "#16a34a",                safe: "#16a34a" };
+const RISK_FILL_MAP: Record<string, string> = {
+  critical: "rgba(239,68,68,0.18)",
+  high:     "rgba(249,115,22,0.15)",
+  medium:   "rgba(234,179,8,0.13)",
+  low:      "rgba(34,197,94,0.12)",
+  safe:     "rgba(134,239,172,0.10)",
+};
+
+function renderMapLayers(
+  L: typeof import("leaflet"),
+  map: import("leaflet").Map,
+  layersRef: React.MutableRefObject<import("leaflet").Layer[]>,
+  corridorRoutes: CorridorRoute[],
+  disruptions: Disruption[],
+  onDisruptionClick: (d: Disruption) => void,
+) {
+  layersRef.current.forEach((l) => l.remove());
+  layersRef.current = [];
+
+  corridorRoutes.forEach((cr) => {
+    const pts = cr.points;
+    if (pts.length < 2) return;
+
+    // Shadow stroke
+    const shadow = L.polyline(pts.map((p) => [p.lat, p.lng] as [number, number]), {
+      color: "#0f2347", weight: 8, opacity: 0.06, lineJoin: "round",
+    }).addTo(map);
+    layersRef.current.push(shadow);
+
+    // Per-segment colored lines
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p = pts[i], n = pts[i + 1];
+      const color  = RISK_COLOR_MAP[p.risk] ?? RISK_COLOR_MAP.safe;
+      const weight = p.risk === "critical" ? 5 : p.risk === "high" ? 4.5 : 3.5;
+      const seg = L.polyline([[p.lat, p.lng], [n.lat, n.lng]], { color, weight, opacity: 0.9, lineJoin: "round" })
+        .bindTooltip(`<b>${p.name}</b><br/>Risk: <b>${p.risk.toUpperCase()}</b>`, { sticky: true })
+        .addTo(map);
+      layersRef.current.push(seg);
+    }
+
+    // Origin / destination dots
+    const originDot = L.circleMarker([pts[0].lat, pts[0].lng], { radius: 6, fillColor: "#0f2347", color: "white", weight: 2, fillOpacity: 1 })
+      .bindTooltip(`<b>${cr.origin}</b> — Origin`, { sticky: true }).addTo(map);
+    const destDot = L.circleMarker([pts[pts.length - 1].lat, pts[pts.length - 1].lng], { radius: 6, fillColor: "#8b5cf6", color: "white", weight: 2, fillOpacity: 1 })
+      .bindTooltip(`<b>${cr.destination}</b> — Destination`, { sticky: true }).addTo(map);
+    layersRef.current.push(originDot, destDot);
+
+    // Disruption hotspot markers
+    pts.filter((p) => p.risk !== "safe" && p.risk !== "low").forEach((p) => {
+      const r = p.risk === "critical" ? 10 : p.risk === "high" ? 8 : 6;
+      if (p.risk === "critical" || p.risk === "high") {
+        const glow = L.circleMarker([p.lat, p.lng], {
+          radius: r + 6, fillColor: RISK_COLOR_MAP[p.risk], color: "transparent", fillOpacity: 0.2,
+        }).addTo(map);
+        layersRef.current.push(glow);
+      }
+      const hotspot = L.circleMarker([p.lat, p.lng], {
+        radius: r, fillColor: RISK_COLOR_MAP[p.risk], color: "white", weight: 2, fillOpacity: 0.95,
+      })
+        .bindPopup(`
+          <div style="min-width:200px;font-family:sans-serif">
+            <div style="font-weight:800;font-size:13px;margin-bottom:4px">${p.name}</div>
+            <div style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:${RISK_FILL_MAP[p.risk]};color:${RISK_COLOR_MAP[p.risk]};border:1px solid ${RISK_COLOR_MAP[p.risk]}">
+              ${p.risk.toUpperCase()} RISK
+            </div>
+            <div style="margin-top:6px;font-size:11px;color:#64748b">Corridor: ${cr.corridorName}</div>
+          </div>
+        `, { maxWidth: 260 })
+        .addTo(map);
+
+      // Link to disruption detail if available
+      const matched = disruptions.find((d) => d.affectedRoutes.includes(cr.corridorName));
+      if (matched) hotspot.on("click", () => onDisruptionClick(matched));
+
+      layersRef.current.push(hotspot);
+    });
+  });
+}
+
+function ControlTowerLeafletMap({
+  corridorRoutes,
+  disruptions,
+  onDisruptionClick,
+}: {
+  corridorRoutes: CorridorRoute[];
+  disruptions: Disruption[];
+  onDisruptionClick: (d: Disruption) => void;
+}) {
+  const mapRef         = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
+  const layersRef      = useRef<import("leaflet").Layer[]>([]);
+
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+    import("leaflet").then((L) => {
+      delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
+      const map = L.map(mapRef.current!, { center: [22.5, 82.5], zoom: 5, zoomControl: true, scrollWheelZoom: true });
+      mapInstanceRef.current = map;
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 18,
+      }).addTo(map);
+      renderMapLayers(L, map, layersRef, corridorRoutes, disruptions, onDisruptionClick);
+    });
+    return () => {
+      if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    import("leaflet").then((L) => {
+      renderMapLayers(L, mapInstanceRef.current!, layersRef, corridorRoutes, disruptions, onDisruptionClick);
+    });
+  }, [corridorRoutes, disruptions, onDisruptionClick]);
+
+  return <div ref={mapRef} style={{ width: "100%", height: "100%" }} />;
+}
 
 const RISK_ROW: Record<string, string> = {
   critical: "border-l-4 border-red-500 bg-red-50/60",
@@ -91,13 +208,14 @@ export default function ControlTowerPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const disruptions = data?.disruptions ?? [];
-  const advisories  = data?.advisories  ?? [];
-  const stats       = data?.stats ?? { totalDisruptions: 0, criticalAlerts: 0, highRiskCorridors: 0, safeCorridors: 0, pendingAdvisories: 0, regionsAffected: 0 };
-  const regionRisks = data?.regionRisks ?? [];
-  const top5        = disruptions.slice(0, 5);
-  const urgent      = advisories.filter((a) => a.isUrgent).slice(0, 3);
-  const ticker      = disruptions.length > 0 ? disruptions : [];
+  const disruptions    = data?.disruptions    ?? [];
+  const advisories     = data?.advisories     ?? [];
+  const stats          = data?.stats ?? { totalDisruptions: 0, criticalAlerts: 0, highRiskCorridors: 0, safeCorridors: 0, pendingAdvisories: 0, regionsAffected: 0 };
+  const regionRisks    = data?.regionRisks    ?? [];
+  const corridorRoutes = data?.corridorRoutes ?? [];
+  const top5           = disruptions.slice(0, 5);
+  const urgent         = advisories.filter((a) => a.isUrgent).slice(0, 3);
+  const ticker         = disruptions.length > 0 ? disruptions : [];
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -176,89 +294,39 @@ export default function ControlTowerPage() {
                     <LiveIndicator />
                   </div>
 
-                  <div className="relative bg-slate-50 p-4" style={{ minHeight: 420 }}>
+                  <div className="relative" style={{ height: 420 }}>
                     {loading ? (
-                      <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="absolute inset-0 flex items-center justify-center bg-slate-50">
                         <Loader2 size={28} className="animate-spin text-slate-300" />
                       </div>
                     ) : (
-                      <svg viewBox="0 0 500 560" className="w-full h-full" style={{ maxHeight: 420 }}>
-                        {/* India outline */}
-                        <path
-                          d="M 180 40 L 200 30 L 230 28 L 270 35 L 310 50 L 340 70 L 360 100 L 370 130 L 380 160 L 375 190 L 390 220 L 400 250 L 410 280 L 400 310 L 385 340 L 370 360 L 350 380 L 330 400 L 310 420 L 290 445 L 270 465 L 255 490 L 245 510 L 235 490 L 215 470 L 200 450 L 185 430 L 165 410 L 148 390 L 135 370 L 120 350 L 110 320 L 105 290 L 108 260 L 115 230 L 120 200 L 115 170 L 120 145 L 130 120 L 145 95 L 160 70 Z"
-                          fill="#e8f0fe" stroke="#93c5fd" strokeWidth="1.5"
-                        />
-                        {/* Grid lines */}
-                        <line x1="180" y1="160" x2="340" y2="160" stroke="#bfdbfe" strokeWidth="0.8" strokeDasharray="4,3" />
-                        <line x1="170" y1="260" x2="400" y2="260" stroke="#bfdbfe" strokeWidth="0.8" strokeDasharray="4,3" />
-                        <line x1="175" y1="360" x2="390" y2="360" stroke="#bfdbfe" strokeWidth="0.8" />
-                        <line x1="255" y1="40"  x2="255" y2="510" stroke="#bfdbfe" strokeWidth="0.8" strokeDasharray="4,3" />
-                        {/* Highway lines */}
-                        <path d="M 230 50 L 225 100 L 222 155 L 228 220 L 235 290 L 240 360 L 250 430" stroke="#94a3b8" strokeWidth="2" fill="none" strokeDasharray="6,3" />
-                        <text x="196" y="140" fontSize="8" fill="#64748b" fontWeight="600">NH44</text>
-                        <path d="M 155 300 L 180 330 L 200 360 L 215 390 L 225 420" stroke="#94a3b8" strokeWidth="2" fill="none" strokeDasharray="6,3" />
-                        <text x="130" y="330" fontSize="8" fill="#64748b" fontWeight="600">NH48</text>
-                        <path d="M 310 290 L 330 315 L 345 340 L 355 365" stroke="#94a3b8" strokeWidth="2" fill="none" strokeDasharray="6,3" />
-                        <text x="352" y="320" fontSize="8" fill="#64748b" fontWeight="600">NH16</text>
-
-                        {/* Dynamic state risk markers from real data */}
-                        {regionRisks.map((r) => {
-                          const pos = STATE_SVG[r.state] ?? STATE_SVG[r.region];
-                          if (!pos) return null;
-                          const risk = r.riskLevel;
-                          const radius = risk === "critical" ? 16 : risk === "high" ? 14 : 12;
-                          const shortName = r.state.length > 9 ? r.state.slice(0, 7) + "." : r.state;
-                          return (
-                            <g key={r.state}>
-                              <circle cx={pos.cx} cy={pos.cy} r={radius} fill={RISK_FILL[risk]} stroke={RISK_STROKE[risk]} strokeWidth="1.5" />
-                              <circle cx={pos.cx} cy={pos.cy} r={radius * 0.38} fill={RISK_DOT_C[risk]} />
-                              <text x={pos.labelX} y={pos.labelY}  fontSize="9" fill={RISK_LABEL[risk]} fontWeight="700">{shortName}</text>
-                              <text x={pos.labelX} y={pos.labelY2} fontSize="8" fill={RISK_TEXT[risk]}>{risk.toUpperCase()}</text>
-                            </g>
-                          );
-                        })}
-
-                        {/* Fallback placeholder states when no real data */}
-                        {regionRisks.length === 0 && (
-                          <>
-                            {[
-                              { cx: 228, cy: 120, label: "North",  lx: 240, ly: 118 },
-                              { cx: 185, cy: 295, label: "West",   lx: 135, ly: 293 },
-                              { cx: 340, cy: 310, label: "East",   lx: 352, ly: 308 },
-                              { cx: 245, cy: 470, label: "South",  lx: 257, ly: 468 },
-                            ].map((p) => (
-                              <g key={p.label}>
-                                <circle cx={p.cx} cy={p.cy} r={12} fill="rgba(34,197,94,0.15)" stroke="#22c55e" strokeWidth="1.5" />
-                                <circle cx={p.cx} cy={p.cy} r={4}  fill="#22c55e" />
-                                <text x={p.lx} y={p.ly} fontSize="8" fill="#14532d" fontWeight="600">{p.label}</text>
-                              </g>
-                            ))}
-                          </>
-                        )}
-
-                        {/* Legend */}
-                        <g transform="translate(15, 380)">
-                          <rect x="0" y="0" width="90" height="100" rx="6" fill="white" fillOpacity="0.9" stroke="#e2e8f0" strokeWidth="1" />
-                          <text x="8" y="14" fontSize="8" fill="#475569" fontWeight="700" letterSpacing="0.5">RISK LEVEL</text>
-                          {[
-                            { label: "Critical", color: "#ef4444", y: 26 },
-                            { label: "High",     color: "#f97316", y: 40 },
-                            { label: "Medium",   color: "#f59e0b", y: 54 },
-                            { label: "Low",      color: "#22c55e", y: 68 },
-                            { label: "Safe",     color: "#15803d", y: 82 },
-                          ].map(({ label, color, y }) => (
-                            <g key={label}>
-                              <circle cx="14" cy={y} r="4" fill={color} />
-                              <text x="24" y={y + 3.5} fontSize="8" fill="#475569">{label}</text>
-                            </g>
-                          ))}
-                        </g>
-                      </svg>
+                      <ControlTowerLeafletMap
+                        corridorRoutes={corridorRoutes}
+                        disruptions={disruptions}
+                        onDisruptionClick={(d) => setSelected(d)}
+                      />
                     )}
                     {/* Active event badge */}
-                    <div className="absolute top-4 right-4 bg-white rounded-lg border border-slate-200 shadow-sm px-3 py-2 text-center">
+                    <div className="absolute top-3 right-3 z-[1000] bg-white rounded-lg border border-slate-200 shadow-sm px-3 py-2 text-center">
                       <div className="text-lg font-bold text-red-600 num">{stats.totalDisruptions}</div>
                       <div className="text-[10px] text-slate-500 font-medium">Active Events</div>
+                    </div>
+                    {/* Risk legend */}
+                    <div className="absolute bottom-3 left-3 z-[1000] bg-white/90 backdrop-blur-sm rounded-lg border border-slate-200 shadow-sm px-3 py-2">
+                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Risk Level</p>
+                      <div className="space-y-1">
+                        {[
+                          { label: "Critical", color: "#ef4444" },
+                          { label: "High",     color: "#f97316" },
+                          { label: "Medium",   color: "#eab308" },
+                          { label: "Low",      color: "#22c55e" },
+                        ].map(({ label, color }) => (
+                          <div key={label} className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
+                            <span className="text-[10px] text-slate-600">{label}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
