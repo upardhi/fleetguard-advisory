@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import TopBar from "@/app/_components/TopBar";
+import { TopBar } from "@/app/_components/TopBar";
 import RiskBadge from "@/app/_components/RiskBadge";
 import DisruptionCard from "@/app/_components/DisruptionCard";
 import { MOCK_DISRUPTIONS, VEHICLE_TYPES, CARGO_TYPES, MAJOR_CITIES } from "@/app/_lib/mockData";

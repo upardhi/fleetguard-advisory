@@ -15,7 +15,7 @@ function connect(): Sql {
     idle_timeout: 20,
     connect_timeout: 10,
     ssl: { rejectUnauthorized: false },
-    prepare: false,
+    prepare: false, // PgBouncer transaction mode does not support prepared statements
   });
 }
 
@@ -23,6 +23,9 @@ function client(): Sql {
   return (globalThis.__pg ??= connect());
 }
 
+// Lazy proxy — the actual connection is only opened when the first query
+// runs, not at module import time (required for `next build` page data collection).
+// Handles both tagged-template calls (db`…`) and property access (db.json, db.begin).
 export const db: Sql = new Proxy(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (() => {}) as any,

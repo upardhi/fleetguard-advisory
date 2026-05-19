@@ -1,0 +1,295 @@
+rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FleetGuard — Firestore security rules
+// ─────────────────────────────────────────────────────────────────────────────
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Legacy helpers (docu-fast) ────────────────────────────────────────────
+
+    function isSuperAdmin() {
+      return request.auth != null && (
+        request.auth.token.admin == true ||
+        request.auth.uid == 'iZ4ldXwOnoc6WfRRakFnxWpTcHI2'
+      );
+    }
+
+    // ── Legacy collections (docu-fast) ───────────────────────────────────────
+
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId || isSuperAdmin();
+    }
+
+    match /verificationRequests/{requestId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid || isSuperAdmin()
+      );
+      allow update, delete: if request.auth != null && (
+        isSuperAdmin() ||
+        (resource.data.userId == request.auth.uid && resource.data.status == 0)
+      );
+    }
+
+    match /reports/{reportId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid || isSuperAdmin()
+      );
+      allow create, update, delete: if isSuperAdmin();
+      match /results/{resultId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/reports/$(reportId)).data.userId == request.auth.uid ||
+          isSuperAdmin()
+        );
+        allow write: if isSuperAdmin();
+      }
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    match /{path=**}/reviews/{reviewId} {
+      allow read: if true;
+    }
+
+    match /price/{priceId} {
+      allow read: if true;
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    match /freeReports/{reportId} {
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
+
+    match /contacts/{contactId} {
+      allow create: if true;
+      allow read, update, delete: if isSuperAdmin();
+    }
+
+    // ── FleetGuard helpers ────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return get(/databases/$(database)/documents/fg_users/$(request.auth.uid)).data.role;
+    }
+
+    function isRole(r) {
+      return isSignedIn() && role() == r;
+    }
+
+    function isAnyOf(roles) {
+      return isSignedIn() && role() in roles;
+    }
+
+    function isGuard()        { return isRole("guard"); }
+    function isManager()      { return isAnyOf(["wh_manager", "regional_manager", "super_admin"]); }
+    function isCSO()          { return isAnyOf(["cso", "super_admin"]); }
+    function isSuperAdmin2()  { return isRole("super_admin"); }
+    function isCompanyAdmin() { return isAnyOf(["company_admin", "super_admin"]); }
+
+    // ── fg_organisations ──────────────────────────────────────────────────────
+    match /fg_organisations/{orgId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin2();
+    }
+
+    // ── fg_warehouses ─────────────────────────────────────────────────────────
+    match /fg_warehouses/{warehouseId} {
+      allow read: if isSignedIn();
+      allow write: if isManager() || isSuperAdmin2();
+    }
+
+    // ── fg_users ──────────────────────────────────────────────────────────────
+    match /fg_users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isCompanyAdmin() || isSuperAdmin2();
+      allow update: if request.auth.uid == userId || isCompanyAdmin() || isSuperAdmin2();
+      allow delete: if false;
+    }
+
+    // ── fg_contractors ────────────────────────────────────────────────────────
+    match /fg_contractors/{contractorId} {
+      allow read: if isSignedIn();
+      allow create: if isGuard() || isManager() || isSuperAdmin2();
+      allow update: if isManager() || isSuperAdmin2();
+      allow delete: if false;
+    }
+
+    // ── fg_drivers ────────────────────────────────────────────────────────────
+    match /fg_drivers/{driverId} {
+      allow read: if isSignedIn();
+      allow create: if isGuard() || isManager() || isSuperAdmin2();
+      // Guards may only update bgStatus/dlStatus fields (crime-check result at entry).
+      // Managers and super-admins may update any field.
+      allow update: if isManager() || isSuperAdmin2() ||
+                       (isGuard() && request.resource.data.diff(resource.data)
+                          .affectedKeys().hasOnly(["bgStatus", "dlStatus", "updatedAt"]));
+      allow delete: if false;
+    }
+
+    // ── fg_driver_background (append-only) ───────────────────────────────────
+    match /fg_driver_background/{recordId} {
+      allow read: if isManager() || isCSO() || isSuperAdmin2();
+      allow create: if isManager() || isSuperAdmin2();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── fg_vehicles ───────────────────────────────────────────────────────────
+    match /fg_vehicles/{vehicleId} {
+      allow read: if isSignedIn();
+      allow create: if isGuard() || isManager() || isSuperAdmin2();
+      allow update: if isManager() || isSuperAdmin2();
+      allow delete: if false;
+    }
+
+    // ── fg_gate_events ────────────────────────────────────────────────────────
+    match /fg_gate_events/{eventId} {
+      allow read: if isSignedIn();
+      allow create: if isGuard() || isManager() || isSuperAdmin2();
+      allow update: if (isGuard() || isManager() || isSuperAdmin2()) &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status"]);
+      allow delete: if false;
+    }
+
+    // ── fg_inbound_entries ────────────────────────────────────────────────────
+    match /fg_inbound_entries/{entryId} {
+      allow read: if isSignedIn();
+      allow create: if isGuard() || isManager() || isSuperAdmin2();
+      allow update: if isGuard() || isManager() || isSuperAdmin2();
+      allow delete: if false;
+    }
+
+    // ── fg_visitor_entries ────────────────────────────────────────────────────
+    match /fg_visitor_entries/{entryId} {
+      allow read: if isSignedIn();
+      allow create: if isGuard() || isManager() || isSuperAdmin2();
+      allow update: if isGuard() || isManager() || isSuperAdmin2();
+      allow delete: if false;
+    }
+
+    // ── fg_trips ──────────────────────────────────────────────────────────────
+    match /fg_trips/{tripId} {
+      allow read: if isSignedIn();
+      allow create: if isGuard() || isManager() || isSuperAdmin2();
+      allow update: if isGuard() || isManager() || isSuperAdmin2();
+      allow delete: if false;
+
+      match /fg_trip_stops/{stopId} {
+        allow read: if isSignedIn();
+        allow create: if isManager() || isSuperAdmin2();
+        allow update: if isGuard() || isManager() || isSuperAdmin2();
+        allow delete: if false;
+      }
+    }
+
+    // ── fg_compliance_checks (append-only) ───────────────────────────────────
+    match /fg_compliance_checks/{checkId} {
+      allow read: if isSignedIn();
+      allow create: if true;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── fg_alerts ─────────────────────────────────────────────────────────────
+    match /fg_alerts/{alertId} {
+      allow read: if isSignedIn();
+      allow create: if true;
+      allow update: if isGuard() || isManager() || isCSO() || isSuperAdmin2();
+      allow delete: if false;
+    }
+
+    // ── fg_incidents ──────────────────────────────────────────────────────────
+    match /fg_incidents/{incidentId} {
+      allow read: if isSignedIn();
+      allow create: if isGuard() || isManager() || isCSO() || isSuperAdmin2();
+      allow update: if isManager() || isCSO() || isSuperAdmin2();
+      allow delete: if false;
+    }
+
+    // ── fg_audit_events (append-only) ─────────────────────────────────────────
+    match /fg_audit_events/{eventId} {
+      allow read: if isManager() || isCSO() || isSuperAdmin2();
+      allow create: if true;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── fg_bg_screening_requests ──────────────────────────────────────────────
+    match /fg_bg_screening_requests/{requestId} {
+      allow read: if isManager() || isCSO() || isSuperAdmin2();
+      allow create: if true;
+      allow update: if true;
+      allow delete: if false;
+    }
+
+    // ── fg_dealers ────────────────────────────────────────────────────────────
+    match /fg_dealers/{dealerId} {
+      allow read: if isSignedIn();
+      allow create: if isManager() || isSuperAdmin2();
+      allow update: if isManager() || isSuperAdmin2();
+      allow delete: if false;
+    }
+
+    // ── fg_warehouse_gates ────────────────────────────────────────────────────
+    match /fg_warehouse_gates/{gateId} {
+      allow read: if isSignedIn();
+      allow create: if isManager() || isSuperAdmin2();
+      allow update: if isManager() || isSuperAdmin2();
+      allow delete: if false;
+    }
+
+    // ── fg_service_providers ──────────────────────────────────────────────────
+    match /fg_service_providers/{providerId} {
+      allow read: if isSignedIn();
+      allow create: if isManager() || isSuperAdmin2();
+      allow update: if isManager() || isSuperAdmin2();
+      allow delete: if false;
+    }
+
+    // ── fg_visitor_config ─────────────────────────────────────────────────────
+    match /fg_visitor_config/{orgId} {
+      allow read: if isSignedIn();
+      allow write: if isCompanyAdmin();
+    }
+
+    // ── fg_verify_attempts ────────────────────────────────────────────────────
+    match /fg_verify_attempts/{attemptId} {
+      allow read: if isManager() || isCSO() || isSuperAdmin2();
+      allow create: if isGuard() || isManager() || isSuperAdmin2();
+      allow update: if isGuard() || isManager() || isSuperAdmin2();
+      allow delete: if false;
+    }
+
+    // ── fg_support_tickets ────────────────────────────────────────────────────
+    // B2B cross-verification requests raised from the driver list.
+    // Reads are open to the roles that can act on a ticket. All writes go
+    // through the Admin SDK (/api/support-tickets) which bypasses these rules,
+    // so client-side writes are forbidden — this keeps scope + status
+    // transitions + the driver flag + email delivery in one place.
+    match /fg_support_tickets/{ticketId} {
+      allow read: if isManager() || isCSO() || isSuperAdmin2();
+      allow create, update, delete: if false;
+    }
+
+    // ── fg_dashboard_cache ────────────────────────────────────────────────────
+    // Pre-computed analytics cache. Any authenticated user may read; guards,
+    // managers, and CSOs may write (cache is written by the client on first
+    // load and invalidated on every gate event).
+    match /fg_dashboard_cache/{warehouseId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+  }
+}

@@ -1,5 +1,5 @@
 "use client";
-import TopBar from "@/app/_components/TopBar";
+import { TopBar } from "@/app/_components/TopBar";
 import RiskBadge from "@/app/_components/RiskBadge";
 import { MOCK_DISRUPTIONS, MOCK_REGION_RISKS } from "@/app/_lib/mockData";
 import { categoryIcon } from "@/app/_lib/utils";

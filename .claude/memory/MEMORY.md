@@ -1,0 +1,6 @@
+- [FleetGuard project state](project-fleetguard.md) — Next.js 16 gate-security POC, 27 routes on mock data, Firebase wiring pending
+- [Firestore safety rule](feedback-db-safety.md) — never delete/modify existing DB; only CREATE new `fg_*` collections
+- [Implementation plan](project-implementation-plan.md) — mock → Firebase migration phases, lives at IMPLEMENTATION_PLAN.md
+- [Requirements brief](reference-brief.md) — authoritative spec at Requirementdoc.md, critical rules in §14
+- [Next.js 16 quirks](feedback-nextjs16.md) — project is on 16.2.3 (not 14), params is Promise, docs at node_modules/next/dist/docs
+- [Architecture reference](../ARCHITECTURE.md) — full stack, collections, import boundaries, design conventions

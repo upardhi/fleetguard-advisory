@@ -1,11 +1,11 @@
 "use client";
 import { useState } from "react";
-import TopBar from "@/app/_components/TopBar";
-import StatCard from "@/app/_components/StatCard";
+import { TopBar } from "@/app/_components/TopBar";
+import { StatCard } from "@/app/_components/StatCard";
 import RiskBadge from "@/app/_components/RiskBadge";
 import DisruptionCard from "@/app/_components/DisruptionCard";
 import AdvisoryCard from "@/app/_components/AdvisoryCard";
-import LiveIndicator from "@/app/_components/LiveIndicator";
+import { LiveIndicator } from "@/app/_components/LiveIndicator";
 import {
   MOCK_DISRUPTIONS,
   MOCK_ADVISORIES,
@@ -75,48 +75,12 @@ export default function ControlTowerPage() {
 
           {/* Stats row */}
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-            <StatCard
-              label="Active Disruptions"
-              value={MOCK_STATS.totalDisruptions}
-              sub="Across all regions"
-              accent="orange"
-              icon={<AlertTriangle size={18} />}
-            />
-            <StatCard
-              label="Critical Alerts"
-              value={MOCK_STATS.criticalAlerts}
-              sub="Immediate action needed"
-              accent="red"
-              icon={<Zap size={18} />}
-            />
-            <StatCard
-              label="High Risk Corridors"
-              value={MOCK_STATS.highRiskCorridors}
-              sub="Avoid or reroute"
-              accent="orange"
-              icon={<Map size={18} />}
-            />
-            <StatCard
-              label="Safe Corridors"
-              value={MOCK_STATS.safeCorriders}
-              sub="Clear for dispatch"
-              accent="green"
-              icon={<ShieldCheck size={18} />}
-            />
-            <StatCard
-              label="AI Advisories"
-              value={MOCK_STATS.pendingAdvisories}
-              sub="Awaiting action"
-              accent="blue"
-              icon={<BrainCircuit size={18} />}
-            />
-            <StatCard
-              label="Regions Affected"
-              value={MOCK_STATS.regionsAffected}
-              sub="Out of 28 monitored"
-              accent="amber"
-              icon={<TrendingUp size={18} />}
-            />
+            <StatCard label="Active Disruptions" value={MOCK_STATS.totalDisruptions}  hint="Across all regions"   tone="warning" icon={AlertTriangle} />
+            <StatCard label="Critical Alerts"     value={MOCK_STATS.criticalAlerts}    hint="Immediate action"     tone="danger"  icon={Zap}           />
+            <StatCard label="High Risk Corridors" value={MOCK_STATS.highRiskCorridors} hint="Avoid or reroute"     tone="warning" icon={Map}            />
+            <StatCard label="Safe Corridors"      value={MOCK_STATS.safeCorriders}     hint="Clear for dispatch"   tone="success" icon={ShieldCheck}    />
+            <StatCard label="AI Advisories"       value={MOCK_STATS.pendingAdvisories} hint="Urgent actions"       tone="info"    icon={BrainCircuit}   />
+            <StatCard label="Regions Affected"    value={MOCK_STATS.regionsAffected}   hint="Out of 28 monitored"  tone="brand"   icon={TrendingUp}     />
           </div>
 
           {/* Main grid: Map | Feed */}

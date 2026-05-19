@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
         u.warehouse_id,
         o.name AS org_name
       FROM users u
-      LEFT JOIN organisations o ON o.id = u.org_id
+      LEFT JOIN orgs o ON o.id = u.org_id
       WHERE u.id = ${claims.sub}
       LIMIT 1
     `;

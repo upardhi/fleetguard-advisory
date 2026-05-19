@@ -1,8 +1,21 @@
-export default function LiveIndicator({ label = "LIVE" }: { label?: string }) {
+import { cx } from "../_lib/utils";
+
+export function LiveIndicator({
+  label = "LIVE",
+  className,
+}: {
+  label?: string;
+  className?: string;
+}) {
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="w-2 h-2 rounded-full bg-emerald-400 live-dot shrink-0" />
-      <span className="text-emerald-400 text-[10px] font-bold tracking-widest">{label}</span>
-    </div>
+    <span
+      className={cx(
+        "inline-flex items-center gap-1.5 rounded-full bg-success-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-success-700 ring-1 ring-inset ring-success-300",
+        className
+      )}
+    >
+      <span className="live-dot h-1.5 w-1.5 rounded-full bg-success-500" />
+      {label}
+    </span>
   );
 }
