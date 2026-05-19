@@ -104,7 +104,13 @@
       "Bash(taskkill /PID 29984 /F)",
       "Bash(Start-Sleep -Seconds 2)",
       "Bash(curl -s -b /tmp/cookies.txt http://localhost:3000/api/v2/warehouses)",
-      "Bash(curl -s -b /tmp/cookies.txt \"http://localhost:3000/api/v2/orgs\")"
+      "Bash(curl -s -b /tmp/cookies.txt \"http://localhost:3000/api/v2/orgs\")",
+      "Bash(mkdir -p \"C:\\\\Programming\\\\itc\\\\fleetguard-advisory\\\\app\\\\api\\\\advisory\\\\v1\\\\planned-routes\\\\[id]\\\\fetch-route\" \"C:\\\\Programming\\\\itc\\\\fleetguard-advisory\\\\app\\\\api\\\\advisory\\\\v1\\\\planned-routes\\\\[id]\\\\run-intelligence\" \"C:\\\\Programming\\\\itc\\\\fleetguard-advisory\\\\app\\\\advisory\\\\planned\\\\[id]\")",
+      "Bash(npx dotenv-cli *)",
+      "Bash(findstr /i \"google\\\\|firecrawl\\\\|openai\")",
+      "Bash(Get-Content .env)",
+      "Bash(Select-String -Pattern \"GOOGLE|FIRECRAWL|OPENAI\")",
+      "PowerShell(cd \"C:\\\\Programming\\\\itc\\\\fleetguard-advisory\"; $env:SUPABASE_POOLER_URL = \\(Get-Content .env.local | Select-String \"SUPABASE_POOLER_URL\" | ForEach-Object { \\($_ -split \"=\", 2\\)[1] }\\); node -e \"const p=require\\('postgres'\\);const sql=p\\('$env:SUPABASE_POOLER_URL'\\);sql\\\\``SELECT email,role FROM fg_users WHERE role='company_admin' LIMIT 5\\\\``.then\\(r=>{console.log\\(JSON.stringify\\(r\\)\\);process.exit\\(\\)}\\).catch\\(e=>{console.error\\(e.message\\);process.exit\\(1\\)}\\)\")"
     ]
   }
 }
