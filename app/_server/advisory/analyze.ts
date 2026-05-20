@@ -4,6 +4,7 @@
  * Uses OpenAI when OPENAI_API_KEY is set; otherwise falls back to keyword classifier.
  */
 
+
 export type DisruptionCategory =
   | "political"
   | "weather"
@@ -45,13 +46,13 @@ export interface AnalyzeContext {
 // ── Keyword heuristic (fallback) ──────────────────────────────────────────────
 
 const CATEGORY_KEYWORDS: Record<DisruptionCategory, string[]> = {
-  political:        ["bandh", "strike", "protest", "agitation", "election", "rally", "blockade", "dharna"],
-  weather:          ["rain", "fog", "storm", "heatwave", "hailstorm", "cyclone", "thunderstorm"],
-  traffic:          ["accident", "pile-up", "collision", "jam", "congestion", "overturn", "traffic"],
-  security:         ["curfew", "violence", "clash", "stone pelting", "law and order", "terror", "encounter"],
-  infrastructure:   ["bridge", "repair", "construction", "roadwork", "diversion", "closed", "collapse"],
-  religious:        ["procession", "festival", "yatra", "puja", "mela", "immersion", "kanwar"],
-  vvip:             ["vvip", "pm ", "prime minister", "president", "convoy", "motorcade", "minister visit"],
+  political: ["bandh", "strike", "protest", "agitation", "election", "rally", "blockade", "dharna"],
+  weather: ["rain", "fog", "storm", "heatwave", "hailstorm", "cyclone", "thunderstorm"],
+  traffic: ["accident", "pile-up", "collision", "jam", "congestion", "overturn", "traffic"],
+  security: ["curfew", "violence", "clash", "stone pelting", "law and order", "terror", "encounter"],
+  infrastructure: ["bridge", "repair", "construction", "roadwork", "diversion", "closed", "collapse"],
+  religious: ["procession", "festival", "yatra", "puja", "mela", "immersion", "kanwar"],
+  vvip: ["vvip", "pm ", "prime minister", "president", "convoy", "motorcade", "minister visit"],
   natural_disaster: ["flood", "landslide", "cyclone", "earthquake", "cloudburst", "deluge"],
 };
 
@@ -62,8 +63,8 @@ const FUTURE_KEYWORDS = [
   "is expected", "is likely", "proposed", "set to",
 ];
 
-const HIGH_RISK_WORDS   = ["blocked", "closed", "stranded", "suspended", "shut", "impassable", "submerged"];
-const CRITICAL_WORDS    = ["complete shutdown", "indefinite", "severe", "washed away", "collapsed"];
+const HIGH_RISK_WORDS = ["blocked", "closed", "stranded", "suspended", "shut", "impassable", "submerged"];
+const CRITICAL_WORDS = ["complete shutdown", "indefinite", "severe", "washed away", "collapsed"];
 
 // Try to extract a date from text like "June 15", "15th June 2026", etc.
 const MONTH_MAP: Record<string, string> = {
@@ -104,9 +105,9 @@ function heuristicAnalyze(content: string, ctx: AnalyzeContext): AnalyzedDisrupt
 
   let riskLevel: RiskLevel = "low";
   let etaImpactHours = 0.5;
-  if (CRITICAL_WORDS.some((w) => lower.includes(w)))     { riskLevel = "critical"; etaImpactHours = 8; }
-  else if (HIGH_RISK_WORDS.some((w) => lower.includes(w))) { riskLevel = "high";  etaImpactHours = 4; }
-  else if (score >= 2)                                     { riskLevel = "medium"; etaImpactHours = 2; }
+  if (CRITICAL_WORDS.some((w) => lower.includes(w))) { riskLevel = "critical"; etaImpactHours = 8; }
+  else if (HIGH_RISK_WORDS.some((w) => lower.includes(w))) { riskLevel = "high"; etaImpactHours = 4; }
+  else if (score >= 2) { riskLevel = "medium"; etaImpactHours = 2; }
 
   const isFuture = FUTURE_KEYWORDS.some((w) => lower.includes(w));
   const eventDate = extractDate(content);
@@ -117,9 +118,9 @@ function heuristicAnalyze(content: string, ctx: AnalyzeContext): AnalyzedDisrupt
   return {
     isRelevant: score > 0 || HIGH_RISK_WORDS.some((w) => lower.includes(w)),
     category,
-    title:    firstLine.slice(0, 90),
-    summary:  content.slice(0, 240).replace(/\s+/g, " ").trim(),
-    detail:   content.slice(0, 600).replace(/\s+/g, " ").trim(),
+    title: firstLine.slice(0, 90),
+    summary: content.slice(0, 240).replace(/\s+/g, " ").trim(),
+    detail: content.slice(0, 600).replace(/\s+/g, " ").trim(),
     riskLevel,
     etaImpactHours,
     confidence: Math.min(70, 30 + score * 15),
@@ -132,24 +133,79 @@ function heuristicAnalyze(content: string, ctx: AnalyzeContext): AnalyzedDisrupt
 
 // ── OpenAI analysis ───────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a logistics risk analyst for an Indian fleet management and trucking advisory platform.
+const SYSTEM_PROMPT = `
+      You are a logistics risk analyst for an Indian trucking and fleet advisory platform.
 
-Given a news article and a road segment, determine whether it describes ANY transport disruption — current OR future.
-CRITICAL: Detect future planned events (PM/CM visits, bandh, election rallies, religious processions, road closures) even if they haven't started yet — fleet planners need advance warning to plan routes.
+      Your job is to detect REAL logistics disruptions affecting truck movement, highways, freight corridors, or transport operations.
 
-Respond ONLY with minified JSON:
-{"isRelevant":boolean,"category":"political|weather|traffic|security|infrastructure|religious|vvip|natural_disaster","title":string,"summary":string,"detail":string,"riskLevel":"critical|high|medium|low|safe","etaImpactHours":number,"confidence":number,"affectedLocation":string,"affectedHighway":string|null,"eventType":"ongoing|scheduled|historical","eventDate":"YYYY-MM-DD"|null,"durationDays":number}
+      IMPORTANT:
+      Do NOT classify general political/social/local incidents as high risk unless they directly affect:
+      - highways
+      - freight movement
+      - truck movement
+      - road closures
+      - traffic congestion
+      - protests blocking roads
+      - transport unions
+      - curfews
+      - diversions
+      - logistics hubs
+      - toll plazas
+      - industrial corridors
 
-Rules:
-- eventType="scheduled"  if the event is announced for a FUTURE date (highest priority to detect)
-- eventType="ongoing"    if the disruption is happening NOW (active in the last few days)
-- eventType="historical" if the event has already concluded
-- eventDate: extract specific date if mentioned ("June 15" → "YYYY-06-15", "next Monday" → calculate from today). null if unclear.
-- durationDays: expected duration in days. 1 for single-day events. 0 if unknown.
-- title: max 90 chars. summary: max 240 chars. detail: max 600 chars.
-- etaImpactHours: expected extra delay for trucks. confidence: 0-100.
-- isRelevant=false ONLY if completely unrelated to transport on this segment.
-- For future scheduled events: set appropriate riskLevel for when the event occurs.`;
+      LOW RISK RULES:
+      Set riskLevel="low" if:
+      - no highway affected
+      - no traffic disruption mentioned
+      - no transport blockage
+      - no logistics impact
+      - only local/social/political issue
+      - ETA impact less than 3 hours
+      - protest is isolated/localized
+      - disruption already mostly over
+
+      SAFE RULES:
+      Set riskLevel="safe" if:
+      - event is historical/completed
+      - no current operational impact
+      - ETA impact is 0
+      - no active transport issue remains
+
+      HIGH RISK RULES:
+      Set riskLevel="high" ONLY if:
+      - highways blocked
+      - severe congestion
+      - transport suspended
+      - multiple districts affected
+      - major protest/bandh
+      - freight movement disrupted
+      - trucks stranded
+      - road closed
+
+      CRITICAL RULES:
+      Set riskLevel="critical" ONLY if:
+      - complete shutdown
+      - indefinite closure
+      - major national/state highway blocked
+      - bridge collapse
+      - landslide/flood fully blocks movement
+
+      EVENT DATE EXTRACTION:
+      You MUST extract eventDate whenever ANY date is available including:
+      - uploaded date
+      - published date
+      - article date
+      - video upload date
+      - mentioned future date
+
+      For ongoing events:
+      - use article/upload/publish date as eventDate if no other date exists
+
+      If no date exists anywhere, return null.
+
+      Respond ONLY with minified JSON:
+      {"isRelevant":boolean,"category":"political|weather|traffic|security|infrastructure|religious|vvip|natural_disaster","title":string,"summary":string,"detail":string,"riskLevel":"critical|high|medium|low|safe","etaImpactHours":number,"confidence":number,"affectedLocation":string,"affectedHighway":string|null,"eventType":"ongoing|scheduled|historical","eventDate":"YYYY-MM-DD"|null,"durationDays":number}
+      `;
 
 async function openaiAnalyze(content: string, ctx: AnalyzeContext): Promise<AnalyzedDisruption> {
   const today = ctx.todayIso ?? new Date().toISOString().slice(0, 10);
@@ -174,24 +230,26 @@ async function openaiAnalyze(content: string, ctx: AnalyzeContext): Promise<Anal
     }),
   });
 
+  debugger;
+
   if (!res.ok) throw new Error(`OpenAI HTTP ${res.status}`);
   const data = (await res.json()) as { choices: Array<{ message: { content: string } }> };
   const p = JSON.parse(data.choices[0].message.content) as Partial<AnalyzedDisruption>;
 
   return {
-    isRelevant:      p.isRelevant ?? false,
-    category:        (p.category as DisruptionCategory) ?? "traffic",
-    title:           p.title ?? "Disruption reported",
-    summary:         p.summary ?? "",
-    detail:          p.detail ?? p.summary ?? "",
-    riskLevel:       (p.riskLevel as RiskLevel) ?? "medium",
-    etaImpactHours:  typeof p.etaImpactHours === "number" ? p.etaImpactHours : 1,
-    confidence:      typeof p.confidence === "number" ? p.confidence : 50,
+    isRelevant: p.isRelevant ?? false,
+    category: (p.category as DisruptionCategory) ?? "traffic",
+    title: p.title ?? "Disruption reported",
+    summary: p.summary ?? "",
+    detail: p.detail ?? p.summary ?? "",
+    riskLevel: (p.riskLevel as RiskLevel) ?? "medium",
+    etaImpactHours: typeof p.etaImpactHours === "number" ? p.etaImpactHours : 1,
+    confidence: typeof p.confidence === "number" ? p.confidence : 50,
     affectedLocation: p.affectedLocation ?? ctx.segment,
-    affectedHighway:  p.affectedHighway ?? undefined,
-    eventType:       (p.eventType as EventType) ?? "ongoing",
-    eventDate:       p.eventDate ?? null,
-    durationDays:    typeof p.durationDays === "number" ? p.durationDays : 1,
+    affectedHighway: p.affectedHighway ?? undefined,
+    eventType: (p.eventType as EventType) ?? "ongoing",
+    eventDate: p.eventDate ?? null,
+    durationDays: typeof p.durationDays === "number" ? p.durationDays : 1,
   };
 }
 
