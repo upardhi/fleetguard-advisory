@@ -54,9 +54,9 @@ function advisoryAction(risk: string, segName: string, corridorName: string): st
 type AdvisoryType = Advisory["type"];
 const RISK_TO_TYPE: Record<string, AdvisoryType> = {
   critical: "hold",
-  high:     "reroute",
-  medium:   "delay",
-  low:      "avoid_night",
+  high: "reroute",
+  medium: "delay",
+  low: "avoid_night",
 };
 
 interface SegmentRow {
@@ -75,6 +75,7 @@ interface SegmentRow {
   corridor_name: string;
   origin: string;
   destination: string;
+  disruption_event_date: string | null;
 }
 
 interface CorridorRow {
@@ -105,13 +106,14 @@ export async function GET(req: NextRequest) {
   let actor;
   try { actor = await requireUser(req); }
   catch { return applySecurityHeaders(NextResponse.json({ error: "Unauthorized" }, { status: 401 })); }
-//  s.disruption_event_date, meed to get this
+  //  s.disruption_event_date, meed to get this
   const [disruptedRows, corridors, mapSegments] = await Promise.all([
     db`
       SELECT
         s.id, s.name, s.segment_type, s.state,
         s.disruption_risk_level, s.disruption_title, s.disruption_summary,
         s.disruption_eta_hours, s.disruption_category, s.disruption_sources,
+        s.disruption_event_date,
         s.last_checked_at, s.lat, s.lng,
         r.id          AS corridor_id,
         r.name        AS corridor_name,
@@ -202,6 +204,7 @@ export async function GET(req: NextRequest) {
     started_at: seg.last_checked_at ?? new Date().toISOString(),
     expected_clear_at: undefined,
     sources: Array.isArray(seg.disruption_sources) ? (seg.disruption_sources as EventSource[]) : undefined,
+    eventDate: seg.disruption_event_date,
   }));
 
   // Derive advisories from deduplicated disruptions (same dedup as above)

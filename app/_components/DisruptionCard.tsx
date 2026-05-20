@@ -21,11 +21,10 @@ export default function DisruptionCard({
 
   return (
     <div
-      className={`rounded-xl border transition-all hover:shadow-md ${
-        selected
-          ? "border-brand-400 bg-brand-50 shadow-sm"
-          : "border-slate-200 bg-white hover:border-slate-300"
-      }`}
+      className={`rounded-xl border transition-all hover:shadow-md ${selected
+        ? "border-brand-400 bg-brand-50 shadow-sm"
+        : "border-slate-200 bg-white hover:border-slate-300"
+        }`}
     >
       <div className="p-4 cursor-pointer" onClick={onClick}>
         {/* Header */}
@@ -60,6 +59,14 @@ export default function DisruptionCard({
             <Clock size={10} />
             {timeAgo(d.started_at)}
           </span>
+          {d.eventDate && (
+            <span className="flex items-center gap-1 text-blue-600 font-medium">
+              📅 {new Date(d.eventDate).toLocaleDateString("en-IN", {
+                day: "numeric",
+                month: "short",
+              })}
+            </span>
+          )}
           {d.eta_impact_hours > 0 && (
             <span className="flex items-center gap-1 text-orange-500 font-medium">
               <AlertCircle size={10} />

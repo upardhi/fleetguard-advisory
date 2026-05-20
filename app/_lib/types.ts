@@ -57,6 +57,7 @@ export interface Disruption {
   highway?: string;
   affectedRoutes: string[];
   eta_impact_hours: number;
+  eventDate?: string | null ;
   verified: boolean;
   source: string;
   started_at: string;

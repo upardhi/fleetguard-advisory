@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       console.error(`[cron] current search failed for ${seg.name}:`, err);
     }
-    // disruption_event_date = ${bestEventDate}, need to add this to the update statements below if we want to store it, and also to the initial select when fetching segments for the API response
+ 
     // Write current disruption state + sources to segment row
     if (bestRisk && bestRisk !== "safe") {
       await db`
@@ -148,6 +148,7 @@ export async function POST(req: NextRequest) {
                disruption_summary    = ${bestSummary},
                disruption_eta_hours  = ${bestEta},
                disruption_category   = ${bestCategory},
+               disruption_event_date = ${bestEventDate},
                disruption_sources    = ${db.json(sources as unknown as Parameters<typeof db.json>[0])},
                last_checked_at       = now()
         WHERE  id = ${seg.id}
@@ -162,6 +163,7 @@ export async function POST(req: NextRequest) {
                disruption_summary    = null,
                disruption_eta_hours  = null,
                disruption_category   = null,
+               disruption_event_date = null,
                disruption_sources    = ${db.json(sources as unknown as Parameters<typeof db.json>[0])},
                last_checked_at       = now()
         WHERE  id = ${seg.id}
