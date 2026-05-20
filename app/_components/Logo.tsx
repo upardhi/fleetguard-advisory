@@ -12,8 +12,8 @@ type Props = {
  */
 export function Logo({ size = 50, variant = "dark", className }: Props) {
   const logoSrc = variant === "light" 
-    ? "/fleetguard-logo-white.png" 
-    : "/fleetguard-logo-dark.png"; 
+    ? "/fleetadvisory-logo-white.png" 
+    : "/fleetadvisory-logo-dark.png"; 
 
   return (
     <div className={cx("flex items-center gap-3", className)}>
