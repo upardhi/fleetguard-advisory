@@ -21,14 +21,14 @@ const RISK_LEVELS: (RiskLevel | "all")[] = ["all", "critical", "high", "medium",
 interface Corridor { id: string; name: string; origin: string; destination: string }
 
 export default function DisruptionsPage() {
-  const [disruptions, setDisruptions]   = useState<Disruption[]>([]);
-  const [corridors, setCorridors]       = useState<Corridor[]>([]);
-  const [loading, setLoading]           = useState(true);
-  const [search, setSearch]             = useState("");
-  const [catFilter, setCatFilter]       = useState<DisruptionCategory | "all">("all");
-  const [riskFilter, setRiskFilter]     = useState<RiskLevel | "all">("all");
+  const [disruptions, setDisruptions] = useState<Disruption[]>([]);
+  const [corridors, setCorridors] = useState<Corridor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [catFilter, setCatFilter] = useState<DisruptionCategory | "all">("all");
+  const [riskFilter, setRiskFilter] = useState<RiskLevel | "all">("all");
   const [corridorFilter, setCorridorFilter] = useState<string>("all");
-  const [selected, setSelected]         = useState<Disruption | null>(null);
+  const [selected, setSelected] = useState<Disruption | null>(null);
 
   useEffect(() => {
     fetch("/api/advisory/v1/intelligence", { credentials: "include" })
@@ -51,8 +51,8 @@ export default function DisruptionsPage() {
         d.state.toLowerCase().includes(q) ||
         (d.highway ?? "").toLowerCase().includes(q) ||
         (d.affectedRoutes[0] ?? "").toLowerCase().includes(q);
-      const matchCat      = catFilter      === "all" || d.category === catFilter;
-      const matchRisk     = riskFilter     === "all" || d.risk     === riskFilter;
+      const matchCat = catFilter === "all" || d.category === catFilter;
+      const matchRisk = riskFilter === "all" || d.risk === riskFilter;
       const matchCorridor = corridorFilter === "all" || d.affectedRoutes[0] === corridorFilter;
       return matchSearch && matchCat && matchRisk && matchCorridor;
     });
@@ -74,9 +74,9 @@ export default function DisruptionsPage() {
         title="Disruption Intelligence"
         subtitle={
           loading ? "Loading…" :
-          disruptions.length > 0
-            ? `${disruptions.length} active disruptions across ${corridors.length} watched corridor${corridors.length !== 1 ? "s" : ""}`
-            : "No active disruptions detected"
+            disruptions.length > 0
+              ? `${disruptions.length} active disruptions across ${corridors.length} watched corridor${corridors.length !== 1 ? "s" : ""}`
+              : "No active disruptions detected"
         }
       />
 
@@ -90,9 +90,8 @@ export default function DisruptionsPage() {
               <div className="flex gap-1.5 overflow-x-auto pb-0.5">
                 <button
                   onClick={() => setCorridorFilter("all")}
-                  className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-semibold transition flex items-center gap-1 ${
-                    corridorFilter === "all" ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                  className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-semibold transition flex items-center gap-1 ${corridorFilter === "all" ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
                 >
                   <Route size={10} /> All Corridors
                   <span className="ml-0.5 opacity-70">({disruptions.length})</span>
@@ -104,14 +103,12 @@ export default function DisruptionsPage() {
                     <button
                       key={c.id}
                       onClick={() => setCorridorFilter(c.name)}
-                      className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-semibold transition flex items-center gap-1 ${
-                        corridorFilter === c.name ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
+                      className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-semibold transition flex items-center gap-1 ${corridorFilter === c.name ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
                     >
                       {c.origin} → {c.destination}
-                      <span className={`ml-0.5 px-1 rounded-full text-[9px] font-bold ${
-                        corridorFilter === c.name ? "bg-white/20" : "bg-slate-300/60"
-                      }`}>{count}</span>
+                      <span className={`ml-0.5 px-1 rounded-full text-[9px] font-bold ${corridorFilter === c.name ? "bg-white/20" : "bg-slate-300/60"
+                        }`}>{count}</span>
                     </button>
                   );
                 })}
@@ -136,9 +133,8 @@ export default function DisruptionsPage() {
                 <button
                   key={c}
                   onClick={() => setCatFilter(c)}
-                  className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold transition ${
-                    catFilter === c ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                  className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold transition ${catFilter === c ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
                 >
                   {c === "all" ? "All Types" : `${categoryIcon(c as DisruptionCategory)} ${categoryLabel(c as DisruptionCategory)}`}
                 </button>
@@ -152,11 +148,10 @@ export default function DisruptionsPage() {
                 <button
                   key={r}
                   onClick={() => setRiskFilter(r)}
-                  className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold transition border ${
-                    riskFilter === r
+                  className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold transition border ${riskFilter === r
                       ? "bg-slate-800 text-white border-slate-800"
                       : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
-                  }`}
+                    }`}
                 >
                   {r === "all" ? "All Severity" : r.charAt(0).toUpperCase() + r.slice(1)}
                 </button>
@@ -248,10 +243,21 @@ export default function DisruptionsPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: "Segment",    value: selected.region },
-                  { label: "State",      value: selected.state },
+                  { label: "Segment", value: selected.region },
+                  { label: "State", value: selected.state },
+                  {
+                    label: "Event Date",
+                    value: selected.eventDate
+                      ? new Date(selected.eventDate).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })
+                      : "—",
+                    className: "text-blue-600",
+                  },
                   { label: "ETA Impact", value: `+${selected.eta_impact_hours}h`, className: "text-orange-600" },
-                  { label: "Detected",   value: timeAgo(selected.started_at) },
+                  { label: "Detected", value: timeAgo(selected.started_at) },
                 ].map(({ label, value, className }) => (
                   <div key={label} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
                     <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{label}</p>
