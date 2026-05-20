@@ -23,29 +23,27 @@ export default function LoginPage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-accent-500/30 bg-accent-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-300">
               <Shield className="h-3 w-3" />
-              Secure warehouse access
+              AI-powered logistics intelligence
             </div>
             <h1 className="mt-5 max-w-md text-4xl font-semibold leading-tight tracking-tight text-white">
-              Secure every gate.
+              Monitor every corridor.
               <br />
-              <span className="text-accent-300">Verify every driver.</span>
+              <span className="text-accent-300">Anticipate every disruption.</span>
             </h1>
 
             <p className="mt-4 max-w-md text-[13.5px] leading-relaxed text-slate-300">
-              FleetGuard helps warehouses manage vehicle entry and exit with live driver
-              verification, DL validation, criminal background screening, duplicate vehicle
-              prevention, and complete audit trails across every gate.
+              FleetAdvisory helps logistics teams monitor highways, political events, weather risks, strikes, and corridor disruptions with AI-powered intelligence, live risk scoring, route advisories, and operational recommendations.
             </p>
 
             <div className="mt-10 grid max-w-md grid-cols-3 gap-4 border-t border-white/10 pt-6">
-              <Stat label="Warehouses" value="50+" />
-              <Stat label="Drivers Verified" value="50k+" />
-              <Stat label="Gate Events / Day" value="5k" />
+              <Stat label="Corridors Monitored" value="500+" />
+              <Stat label="Disruptions Tracked" value="10k+" />
+              <Stat label="Advisories / Day" value="2k+" />
             </div>
           </div>
 
           <div className="text-[11.5px] text-slate-400">
-            © 2026 fraudcheck.ai · Compliance · Security · Command
+            © 2026 fraudcheck.ai · AI Logistics Intelligence Platform
           </div>
         </div>
       </div>
@@ -63,10 +61,10 @@ export default function LoginPage() {
                 Welcome back
               </div>
               <h2 className="mt-1 text-[22px] font-semibold tracking-tight text-slate-900">
-                Sign in to FleetGuard
+                Sign in to FleetAdvisory
               </h2>
               <p className="mt-1 text-[13px] text-slate-500">
-                Use your work email. Guards — sign in with your shared gate terminal.
+                Use your work email to access corridor intelligence, disruptions, and operational advisories.
               </p>
             </div>
 
@@ -95,7 +93,7 @@ export default function LoginPage() {
             >
               Privacy Policy
             </a>{" "}
-            and Acceptable Use Policy. All gate events are immutable and auditable.
+            and Acceptable Use Policy. All disruption intelligence and advisories are monitored and auditable.
           </p>
         </div>
       </div>
