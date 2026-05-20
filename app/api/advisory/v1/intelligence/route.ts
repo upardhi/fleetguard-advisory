@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
   let actor;
   try { actor = await requireUser(req); }
   catch { return applySecurityHeaders(NextResponse.json({ error: "Unauthorized" }, { status: 401 })); }
-
+//  s.disruption_event_date, meed to get this
   const [disruptedRows, corridors, mapSegments] = await Promise.all([
     db`
       SELECT

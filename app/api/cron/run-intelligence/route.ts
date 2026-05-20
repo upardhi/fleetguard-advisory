@@ -99,6 +99,7 @@ export async function POST(req: NextRequest) {
     let bestSummary: string | null = null;
     let bestEta: number | null = null;
     let bestCategory: string | null = null;
+    let bestEventDate: string | null = null;
 
     try {
       const hits = await firecrawlSearch(currentSearchQuery({ name: seg.name, state: seg.state ?? undefined }), 3);
@@ -125,17 +126,18 @@ export async function POST(req: NextRequest) {
         });
 
         if (isCurrentDisruption && (RISK_ORDER[result.riskLevel] ?? 0) > (RISK_ORDER[bestRisk ?? "safe"] ?? 0)) {
-          bestRisk    = result.riskLevel;
-          bestTitle   = result.title;
+          bestRisk = result.riskLevel;
+          bestTitle = result.title;
           bestSummary = result.summary;
-          bestEta     = result.etaImpactHours;
+          bestEta = result.etaImpactHours;
           bestCategory = result.category;
+          bestEventDate = result.eventDate;
         }
       }
     } catch (err) {
       console.error(`[cron] current search failed for ${seg.name}:`, err);
     }
-
+    // disruption_event_date = ${bestEventDate}, need to add this to the update statements below if we want to store it, and also to the initial select when fetching segments for the API response
     // Write current disruption state + sources to segment row
     if (bestRisk && bestRisk !== "safe") {
       await db`
@@ -217,9 +219,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const newDone        = job.segments_done + segments.length;
+  const newDone = job.segments_done + segments.length;
   const newDisruptions = job.disruptions_found + batchDisruptions;
-  const isComplete     = newDone >= job.segments_total;
+  const isComplete = newDone >= job.segments_total;
 
   if (isComplete) {
     await db`
