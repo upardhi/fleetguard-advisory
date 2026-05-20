@@ -100,11 +100,32 @@ export function currentSearchQuery(seg: { name: string; state?: string }): strin
  * Future event search — no date restriction, explicitly looks for upcoming events.
  * Surfaces PM visits, bandh calls, election rallies, processions announced ahead of time.
  */
+
 export function futureSearchQuery(seg: { name: string; state?: string }): string {
   const place = seg.state ? `${seg.name} ${seg.state}` : seg.name;
-  const year = new Date().getFullYear();
-  return `${place} bandh OR "PM visit" OR "CM visit" OR rally OR election OR yatra OR procession OR strike OR roadblock scheduled ${year}`;
+
+  const now = new Date();
+
+  const currentMonth = now.toLocaleString("en-IN", {
+    month: "long",
+    year: "numeric",
+  });
+
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    .toLocaleString("en-IN", {
+      month: "long",
+      year: "numeric",
+    });
+
+      const year = new Date().getFullYear();
+
+  return `${place} bandh OR "PM visit" OR "CM visit" OR rally OR election OR yatra OR procession OR strike OR roadblock scheduled OR upcoming OR announced ${currentMonth} OR ${nextMonth} of year`;
 }
+// export function futureSearchQuery(seg: { name: string; state?: string }): string {
+//   const place = seg.state ? `${seg.name} ${seg.state}` : seg.name;
+//   const year = new Date().getFullYear();
+//   return `${place} bandh OR "PM visit" OR "CM visit" OR rally OR election OR yatra OR procession OR strike OR roadblock scheduled ${year}`;
+// }
 
 /** @deprecated Use currentSearchQuery instead */
 export function segmentSearchQuery(seg: { name: string; state?: string }): string {
