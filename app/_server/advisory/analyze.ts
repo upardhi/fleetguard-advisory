@@ -230,8 +230,6 @@ async function openaiAnalyze(content: string, ctx: AnalyzeContext): Promise<Anal
     }),
   });
 
-  debugger;
-
   if (!res.ok) throw new Error(`OpenAI HTTP ${res.status}`);
   const data = (await res.json()) as { choices: Array<{ message: { content: string } }> };
   const p = JSON.parse(data.choices[0].message.content) as Partial<AnalyzedDisruption>;
