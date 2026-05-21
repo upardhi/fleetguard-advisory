@@ -265,6 +265,23 @@ function DisruptionRow({ d, expanded, onToggle }: {
             <span className="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
               {categoryIcon(d.category)} {CATEGORY_META[d.category]?.label ?? d.category}
             </span>
+            {/* Scan freshness — amber if >20h old */}
+            {d.last_checked_at && (
+              <span
+                className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                  Date.now() - new Date(d.last_checked_at).getTime() > 20 * 3600 * 1000
+                    ? "bg-amber-50 text-amber-600 border border-amber-200"
+                    : "bg-slate-100 text-slate-500"
+                }`}
+                title={`Scanned: ${new Date(d.last_checked_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`}
+              >
+                🔍 {(() => {
+                  const ms = Date.now() - new Date(d.last_checked_at).getTime();
+                  const h = Math.floor(ms / 3600000);
+                  return h < 1 ? "just now" : `${h}h ago`;
+                })()}
+              </span>
+            )}
             {allSources.length > 0 && (
               <button
                 onClick={onToggle}
@@ -749,17 +766,14 @@ export default function ControlTowerPage() {
             <StatCard label="Regions Affected"    value={loading ? "—" : filteredStats.regionsAffected}   hint="Of 4 ops regions"          tone="brand"   icon={TrendingUp}     />
           </div>
 
-          {/* No data prompt */}
-          {!loading && !data?.hasData && (
+          {/* No corridors prompt — only when truly empty */}
+          {!loading && (data?.corridors?.length ?? 0) === 0 && (
             <div className="rounded-2xl border border-blue-200 bg-blue-50 px-6 py-8 text-center">
               <Route size={32} className="mx-auto mb-3 text-blue-400" />
-              <p className="text-sm font-semibold text-blue-800 mb-1">
-                {(data?.corridors?.length ?? 0) === 0 ? "No watched corridors yet" : "Intelligence not run yet"}
-              </p>
+              <p className="text-sm font-semibold text-blue-800 mb-1">No watched corridors yet</p>
               <p className="text-xs text-blue-600 mb-4">
-                {(data?.corridors?.length ?? 0) === 0
-                  ? "Add corridors in Watched Corridors, then run intelligence to see live disruptions here."
-                  : "Go to a Watched Corridor and click 'Run Intelligence' to populate live disruption data."}
+                Add corridors in Watched Corridors to start monitoring disruptions.
+                After adding, go to Settings → Process Jobs Now to run the first intelligence scan.
               </p>
               <Link href="/advisory/planned" className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg bg-brand-700 text-white hover:bg-brand-800 transition">
                 Go to Watched Corridors <ArrowRight size={13} />
@@ -767,8 +781,22 @@ export default function ControlTowerPage() {
             </div>
           )}
 
-          {/* ── Region-wise disruption strip ──────────────────────────────── */}
-          {(loading || data?.hasData) && (
+          {/* Intelligence not run yet — corridors exist but no scan done */}
+          {!loading && (data?.corridors?.length ?? 0) > 0 && allDisruptions.length === 0 && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 flex items-center gap-3">
+              <BrainCircuit size={18} className="text-amber-500 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-amber-800">No disruptions detected yet</p>
+                <p className="text-xs text-amber-700">All {data?.corridors?.length} corridor{(data?.corridors?.length ?? 0) !== 1 ? "s" : ""} are clear — or intelligence hasn&apos;t run yet. Go to Settings → Process Jobs Now to trigger a fresh scan.</p>
+              </div>
+              <Link href="/advisory/settings" className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-700 text-white hover:bg-amber-800 transition">
+                Run Scan <ArrowRight size={11} />
+              </Link>
+            </div>
+          )}
+
+          {/* ── Region-wise disruption strip — show as long as corridors exist ── */}
+          {(loading || (data?.corridors?.length ?? 0) > 0) && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {(["north", "east", "west", "south"] as Exclude<OpsRegion, "all">[]).map((r) => (
                 <RegionCard
@@ -788,7 +816,7 @@ export default function ControlTowerPage() {
           )}
 
           {/* ── Main grid ─────────────────────────────────────────────────── */}
-          {(loading || data?.hasData) && (
+          {(loading || (data?.corridors?.length ?? 0) > 0) && (
             <div className="grid xl:grid-cols-5 gap-5">
 
               {/* Left: Map + Corridor detail */}
@@ -840,7 +868,7 @@ export default function ControlTowerPage() {
                   </div>
                 </div>
 
-                {/* Regional risk table — shown when data exists */}
+                {/* Regional risk table — shown when disruption data exists */}
                 {regionRisks.length > 0 && (
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                     <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
@@ -1034,8 +1062,24 @@ export default function ControlTowerPage() {
                 </div>
               </div>
             )}
-            <div className="text-xs text-slate-400 flex items-center gap-1.5">
-              <BrainCircuit size={11} /> {selected.source}
+            {/* Scan freshness — always show so operator knows data age */}
+            <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 border text-xs ${
+              selected.last_checked_at && Date.now() - new Date(selected.last_checked_at).getTime() > 20 * 3600 * 1000
+                ? "bg-amber-50 border-amber-200 text-amber-800"
+                : "bg-slate-50 border-slate-100 text-slate-500"
+            }`}>
+              <BrainCircuit size={12} className="shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p>{selected.source}</p>
+                {selected.last_checked_at && (
+                  <p className="font-semibold">
+                    Data scanned: {new Date(selected.last_checked_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST
+                    {Date.now() - new Date(selected.last_checked_at).getTime() > 20 * 3600 * 1000
+                      ? " — ⚠ over 20h old, run a fresh scan in Settings"
+                      : ""}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>

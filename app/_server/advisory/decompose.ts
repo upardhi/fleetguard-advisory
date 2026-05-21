@@ -88,12 +88,14 @@ export async function decomposeRoute(
 }
 
 /**
- * Current disruption search — scoped to last 7 days by Firecrawl (tbs:qdr:w).
- * Surfaces active accidents, closures, protests happening NOW.
+ * Current disruption search — scoped to past 24 hours by Firecrawl (tbs:qdr:d).
+ * Surfaces active accidents, closures, protests, and traffic snarls happening NOW.
+ * Includes "jam", "congestion", "gridlock" — multi-day traffic snarls (e.g. 3-day
+ * highway blockages) must be captured even when framed as a traffic issue.
  */
 export function currentSearchQuery(seg: { name: string; state?: string }): string {
   const place = seg.state ? `${seg.name} ${seg.state}` : seg.name;
-  return `${place} road OR highway accident OR flood OR protest OR roadblock OR closed OR blocked news`;
+  return `${place} road OR highway blocked OR closed OR accident OR flood OR protest OR roadblock OR jam OR traffic snarl OR gridlock OR congestion OR strike news`;
 }
 
 /**

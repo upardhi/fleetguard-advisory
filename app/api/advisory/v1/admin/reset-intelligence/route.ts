@@ -30,14 +30,15 @@ export async function POST(req: NextRequest) {
   // ── 1. Reset disruption columns on all segments for this org's routes ──────
   await db`
     UPDATE adv_watched_segments s
-    SET    has_disruption        = false,
-           disruption_risk_level = null,
-           disruption_title      = null,
-           disruption_summary    = null,
-           disruption_eta_hours  = null,
-           disruption_category   = null,
-           disruption_sources    = null,
-           last_checked_at       = null
+    SET    has_disruption             = false,
+           disruption_risk_level     = null,
+           disruption_title          = null,
+           disruption_summary        = null,
+           disruption_eta_hours      = null,
+           disruption_category       = null,
+           disruption_sources        = null,
+           last_checked_at           = null,
+           disruption_first_seen_at  = null
     FROM   adv_watched_routes r
     WHERE  r.id     = s.watched_route_id
       AND  r.org_id = ${org}

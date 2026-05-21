@@ -41,6 +41,12 @@ export default function SettingsPage() {
   const [resetState, setResetState]     = useState<ResetState>("idle");
   const [resetMessage, setResetMessage] = useState("");
 
+  // ── Manual intelligence processor ────────────────────────────────────────
+  type ProcessState = "idle" | "running" | "done" | "error";
+  const [processState,   setProcessState]   = useState<ProcessState>("idle");
+  const [processMessage, setProcessMessage] = useState("");
+  const [processProgress, setProcessProgress] = useState<{ done: number; total: number } | null>(null);
+
   async function handleReset() {
     if (resetState === "idle") { setResetState("confirming"); return; }
     if (resetState === "confirming") {
@@ -61,6 +67,57 @@ export default function SettingsPage() {
         setResetState("error");
         setTimeout(() => { setResetState("idle"); setResetMessage(""); }, 6000);
       }
+    }
+  }
+
+  async function handleProcessJobs() {
+    setProcessState("running");
+    setProcessMessage("Starting intelligence processing…");
+    setProcessProgress(null);
+
+    let batches = 0;
+    const MAX_BATCHES = 200; // safety cap — 200 batches × 8 segments = 1,600 segments max
+
+    try {
+      while (batches < MAX_BATCHES) {
+        const res  = await fetch("/api/cron/run-intelligence", { method: "POST", credentials: "include" });
+        const data = await res.json() as {
+          ok?: boolean;
+          message?: string;
+          complete?: boolean;
+          segmentsDone?: number;
+          segmentsTotal?: number;
+        };
+
+        if (!res.ok) throw new Error(data.message ?? "Processor error");
+
+        if (data.message === "No pending jobs") {
+          // All done
+          setProcessMessage(`Done — ${batches} batch${batches !== 1 ? "es" : ""} processed.`);
+          setProcessState("done");
+          setProcessProgress(null);
+          setTimeout(() => { setProcessState("idle"); setProcessMessage(""); setProcessProgress(null); }, 10_000);
+          return;
+        }
+
+        batches++;
+        if (data.segmentsDone !== undefined && data.segmentsTotal !== undefined) {
+          setProcessProgress({ done: data.segmentsDone, total: data.segmentsTotal });
+          setProcessMessage(`Batch ${batches} — segment ${data.segmentsDone}/${data.segmentsTotal}…`);
+        } else {
+          setProcessMessage(`Processing batch ${batches}…`);
+        }
+
+        // Small yield so the UI can re-render
+        await new Promise<void>((r) => setTimeout(r, 300));
+      }
+      setProcessMessage("Reached batch limit. Some jobs may still be pending — run again.");
+      setProcessState("done");
+      setTimeout(() => { setProcessState("idle"); setProcessMessage(""); setProcessProgress(null); }, 10_000);
+    } catch (err) {
+      setProcessMessage(err instanceof Error ? err.message : "Unknown error");
+      setProcessState("error");
+      setTimeout(() => { setProcessState("idle"); setProcessMessage(""); setProcessProgress(null); }, 8_000);
     }
   }
 
@@ -241,6 +298,142 @@ export default function SettingsPage() {
               )}
             </div>
           </Section>
+
+          {/* Intelligence Reset — admin only */}
+          {isAdmin && (
+            <Section icon={RefreshCw} title="Intelligence Data" desc="Manage the AI news-analysis cache for all your corridors">
+              <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800 mb-3 flex items-start gap-2">
+                <AlertTriangle size={15} className="shrink-0 mt-0.5 text-orange-500" />
+                <div>
+                  <p className="font-semibold">Full Intelligence Reset</p>
+                  <p className="text-xs mt-0.5 text-orange-700">
+                    Clears all cached disruption flags, corridor events, and in-app notifications, then immediately re-queues every corridor for a fresh AI scan.
+                    The <code className="bg-orange-100 px-1 rounded">run-intelligence</code> cron will process corridors within the next minute.
+                  </p>
+                </div>
+              </div>
+
+              {resetState === "done" && (
+                <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mb-3">
+                  <CheckCircle2 size={15} className="shrink-0 text-emerald-500" />
+                  {resetMessage}
+                </div>
+              )}
+              {resetState === "error" && (
+                <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-3">
+                  <AlertTriangle size={15} className="shrink-0 text-red-500" />
+                  {resetMessage}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  {resetState === "confirming" ? (
+                    <p className="text-sm font-semibold text-orange-700">
+                      Are you sure? This will delete all current disruption data.
+                    </p>
+                  ) : (
+                    <div>
+                      <div className="text-sm font-medium text-slate-800">Clear &amp; Re-analyse</div>
+                      <div className="text-xs text-slate-500">Removes stale news, duplicates, and old flags. Fresh scan starts within 60s.</div>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {resetState === "confirming" && (
+                    <button
+                      onClick={() => setResetState("idle")}
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <button
+                    onClick={() => void handleReset()}
+                    disabled={resetState === "running" || resetState === "done"}
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition disabled:opacity-60 ${
+                      resetState === "confirming"
+                        ? "bg-red-600 text-white hover:bg-red-700"
+                        : resetState === "running"
+                          ? "bg-orange-100 text-orange-700"
+                          : "bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200"
+                    }`}
+                  >
+                    {resetState === "running" ? (
+                      <><Loader2 size={14} className="animate-spin" /> Resetting…</>
+                    ) : resetState === "confirming" ? (
+                      <><Trash2 size={14} /> Yes, Reset All</>
+                    ) : (
+                      <><RefreshCw size={14} /> Reset Intelligence</>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </Section>
+          )}
+
+          {/* Manual Intelligence Processor — admin only */}
+          {isAdmin && (
+            <Section icon={RefreshCw} title="Process Intelligence Jobs" desc="Manually run queued intelligence scans (use after reset or in local dev)">
+              <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 mb-3 flex items-start gap-2">
+                <AlertTriangle size={15} className="shrink-0 mt-0.5 text-blue-500" />
+                <div>
+                  <p className="font-semibold">Local / Manual Mode</p>
+                  <p className="text-xs mt-0.5 text-blue-700">
+                    In production, intelligence jobs run automatically every minute via Vercel Cron.
+                    In local development, use this button to process all queued jobs now.
+                    Each batch processes 8 segments — this may take several minutes for large corridor sets.
+                  </p>
+                </div>
+              </div>
+
+              {processState === "done" && (
+                <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mb-3">
+                  <CheckCircle2 size={15} className="shrink-0 text-emerald-500" />
+                  {processMessage}
+                </div>
+              )}
+              {processState === "error" && (
+                <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-3">
+                  <AlertTriangle size={15} className="shrink-0 text-red-500" />
+                  {processMessage}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium text-slate-800">Run Pending Jobs</div>
+                  {processState === "running" ? (
+                    <div className="text-xs text-slate-500 mt-0.5">{processMessage}</div>
+                  ) : (
+                    <div className="text-xs text-slate-500">Processes all <code className="bg-slate-100 px-1 rounded">pending</code> intelligence jobs in the queue.</div>
+                  )}
+                  {processProgress && (
+                    <div className="mt-2 w-48">
+                      <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-brand-500 transition-all duration-300"
+                          style={{ width: `${Math.round((processProgress.done / processProgress.total) * 100)}%` }}
+                        />
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">{processProgress.done}/{processProgress.total} segments</div>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => void handleProcessJobs()}
+                  disabled={processState === "running" || processState === "done"}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition disabled:opacity-60 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 shrink-0"
+                >
+                  {processState === "running" ? (
+                    <><Loader2 size={14} className="animate-spin" /> Processing…</>
+                  ) : (
+                    <><RefreshCw size={14} /> Process Jobs Now</>
+                  )}
+                </button>
+              </div>
+            </Section>
+          )}
 
           {/* Session */}
           <Section icon={LogOut} title="Session" desc="Sign out of your advisory account on this device">

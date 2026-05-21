@@ -77,6 +77,10 @@ const HIGH_RISK_WORDS = [
   "border closed", "check post congestion", "vehicle ban", "movement restriction",
   "fuel strike", "diesel shortage", "pump strike", "night ban",
   "procession blocking", "yatra", "mela road closure",
+  // Multi-day traffic snarls — these ARE actionable (rerouting required)
+  "traffic jam", "traffic snarl", "gridlock", "massive traffic", "severe traffic",
+  "traffic standstill", "hours-long jam", "bumper to bumper", "kilometres of jam",
+  "km of traffic", "miles of jam", "traffic backlog", "3-day", "two days jam",
 ];
 
 // Try to extract a date from text like "June 15", "15th June 2026", etc.
@@ -184,11 +188,12 @@ HIGH (isRelevant=true, riskLevel="high") — causes significant delay or rerouti
 • Regulatory / Government Restriction — inter-state movement ban, pollution-based vehicle ban, city entry restriction, night-movement enforcement
 • Fuel / Transport Infrastructure Disruption — fuel pump strike, major diesel shortage, widespread toll-system failure
 • Large Religious Event / Yatra / Mela with confirmed road impact on freight routes (ONLY if starting today or tomorrow)
+• Multi-day Traffic Snarl — a traffic jam or gridlock that has persisted for 2+ days on a freight-relevant highway or arterial road, with ongoing articles today confirming it is still active. "Routine" means it clears within hours; 2+ day standstills are NOT routine and require rerouting decisions.
 
 ━━━ DO NOT REPORT — set isRelevant=false ━━━
 ✗ ANY event that has already concluded (this is the most important rule)
 ✗ Events that happened MORE THAN 24 HOURS AGO unless clearly still ongoing today
-✗ Routine traffic jams or minor congestion (no physical blockage)
+✗ Single-occurrence traffic jams that clear within a few hours (routine congestion)
 ✗ Light rain, morning fog, or ordinary weather without road closure
 ✗ Minor accidents that have been cleared
 ✗ Religious processions limited to city lanes not used by freight

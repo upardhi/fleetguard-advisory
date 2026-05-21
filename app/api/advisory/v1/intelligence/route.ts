@@ -71,6 +71,7 @@ interface SegmentRow {
   disruption_category: string | null;
   disruption_sources: unknown | null;
   last_checked_at: string | null;
+  disruption_first_seen_at: string | null;
   corridor_id: string;
   corridor_name: string;
   origin: string;
@@ -126,7 +127,7 @@ export async function GET(req: NextRequest) {
             s.id, s.name, s.segment_type, s.state,
             s.disruption_risk_level, s.disruption_title, s.disruption_summary,
             s.disruption_eta_hours, s.disruption_category, s.disruption_sources,
-            s.last_checked_at, s.lat, s.lng,
+            s.last_checked_at, s.disruption_first_seen_at, s.lat, s.lng,
             r.id          AS corridor_id,
             r.name        AS corridor_name,
             r.origin, r.destination
@@ -150,7 +151,7 @@ export async function GET(req: NextRequest) {
             s.id, s.name, s.segment_type, s.state,
             s.disruption_risk_level, s.disruption_title, s.disruption_summary,
             s.disruption_eta_hours, s.disruption_category, s.disruption_sources,
-            s.last_checked_at, s.lat, s.lng,
+            s.last_checked_at, s.disruption_first_seen_at, s.lat, s.lng,
             r.id          AS corridor_id,
             r.name        AS corridor_name,
             r.origin, r.destination
@@ -221,14 +222,15 @@ export async function GET(req: NextRequest) {
   }).filter((cr) => cr.points.length > 0);
 
   // ── Staleness filter ──────────────────────────────────────────────────────
-  // Drop any disruption whose last_checked_at is older than 36 hours.
-  // This handles the case where a segment was flagged in a past scan but
-  // the next scan hasn't cleared it yet (e.g. cron ran yesterday, hasn't
-  // run again today). Better to show nothing than stale false alarms.
-  const thirtySevenHoursAgo = new Date(Date.now() - 37 * 3600 * 1000).toISOString();
+  // Drop any disruption whose last_checked_at is older than 26 hours.
+  // 26h = "yesterday's scan" threshold: if the daily cron ran at 06:00 and it's
+  // now 08:00 the next day (26h later), the data is stale and should be hidden
+  // until the next scan confirms or clears it. Better to show nothing than to
+  // show "old news" from two days ago as if it's current intelligence.
+  const staleThreshold = new Date(Date.now() - 26 * 3600 * 1000).toISOString();
   const freshRows = disruptedRows.filter((seg) => {
     if (!seg.last_checked_at) return false;
-    return seg.last_checked_at >= thirtySevenHoursAgo;
+    return seg.last_checked_at >= staleThreshold;
   });
 
   // ── Deduplication ─────────────────────────────────────────────────────────
@@ -263,7 +265,10 @@ export async function GET(req: NextRequest) {
     eta_impact_hours: seg.disruption_eta_hours ?? 0,
     verified: true,
     source: `AI Intelligence — ${seg.corridor_name}`,
-    started_at: seg.last_checked_at ?? new Date().toISOString(),
+    // started_at = when the disruption was FIRST detected (not when last scanned).
+    // Falls back to last_checked_at for legacy rows that pre-date the column.
+    started_at: seg.disruption_first_seen_at ?? seg.last_checked_at ?? new Date().toISOString(),
+    last_checked_at: seg.last_checked_at ?? undefined,
     expected_clear_at: undefined,
     sources: Array.isArray(seg.disruption_sources) ? (seg.disruption_sources as EventSource[]) : undefined,
   }));
@@ -336,7 +341,7 @@ export async function GET(req: NextRequest) {
       advisories,
       corridors,
       regionRisks,
-      hasData: corridors.length > 0 && disruptions.length > 0,
+      hasData: corridors.length > 0,
       lastUpdated: new Date().toISOString(),
     }),
   );

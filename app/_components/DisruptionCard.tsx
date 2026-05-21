@@ -51,15 +51,30 @@ export default function DisruptionCard({
         <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">{d.summary}</p>
 
         {/* Footer */}
-        <div className="flex items-center gap-4 mt-3 text-[11px] text-slate-400">
+        <div className="flex items-center gap-4 mt-3 text-[11px] text-slate-400 flex-wrap">
           <span className="flex items-center gap-1">
             <MapPin size={10} />
             {d.region}, {d.state}
           </span>
-          <span className="flex items-center gap-1">
+          {/* "Ongoing for X" — how long the disruption has been active */}
+          <span className="flex items-center gap-1" title={`First detected: ${new Date(d.started_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`}>
             <Clock size={10} />
             {timeAgo(d.started_at)}
           </span>
+          {/* "Scanned X ago" — how fresh the underlying news data is */}
+          {d.last_checked_at && (
+            <span
+              className={`flex items-center gap-1 font-medium ${
+                // Warn if data is older than 20 hours
+                Date.now() - new Date(d.last_checked_at).getTime() > 20 * 3600 * 1000
+                  ? "text-amber-500"
+                  : "text-slate-400"
+              }`}
+              title={`Last scanned: ${new Date(d.last_checked_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`}
+            >
+              🔍 scanned {timeAgo(d.last_checked_at)}
+            </span>
+          )}
           {d.eta_impact_hours > 0 && (
             <span className="flex items-center gap-1 text-orange-500 font-medium">
               <AlertCircle size={10} />

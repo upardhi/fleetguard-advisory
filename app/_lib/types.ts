@@ -59,7 +59,8 @@ export interface Disruption {
   eta_impact_hours: number;
   verified: boolean;
   source: string;
-  started_at: string;
+  started_at: string;        // when disruption was FIRST detected (disruption_first_seen_at)
+  last_checked_at?: string;  // when segment was last scanned — shows data freshness
   expected_clear_at?: string;
   sources?: EventSource[];
 }

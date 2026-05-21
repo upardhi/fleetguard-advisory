@@ -741,12 +741,12 @@ export default function PlannedRouteDetailPage({
         setJobDone(pdata.segmentsDone);
         setJobTotal(pdata.segmentsTotal);
 
-        if (pdata.status === "done") {
+        if (pdata.status === "completed" || pdata.status === "done") {
           clearInterval(pollRef.current!);
           pollRef.current = null;
           setActionMsg(`Intelligence complete — ${pdata.segmentsDone} segments checked, ${pdata.disruptionsFound} disruptions found.`);
           await load();
-        } else if (pdata.status === "failed" || pdata.status === "cancelled") {
+        } else if (pdata.status === "failed" || pdata.status === "cancelled" || pdata.status === "error") {
           clearInterval(pollRef.current!);
           pollRef.current = null;
           setActionMsg(`Job ${pdata.status}${pdata.error ? `: ${pdata.error}` : ""}`);

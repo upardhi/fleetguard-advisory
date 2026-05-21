@@ -87,9 +87,10 @@ export async function POST(req: NextRequest) {
   }
 
   let batchDisruptions = 0;
-  // URL-level dedup within this batch: don't scrape/analyze the same URL
-  // for multiple segments in the same batch invocation.
-  const processedUrls = new Set<string>();
+  // Scrape-level dedup: avoid re-fetching the same URL multiple times in one batch.
+  // IMPORTANT: we still RE-ANALYSE the cached content with each segment's own context
+  // so a Delhi article found for segment A is also evaluated for nearby segment B.
+  const scrapedCache = new Map<string, { markdown: string; title: string }>();
 
   for (const seg of segments) {
     const ctx = { segment: seg.name, state: seg.state ?? undefined, todayIso: today };
@@ -104,15 +105,16 @@ export async function POST(req: NextRequest) {
     let bestCategory: string | null = null;
 
     try {
-      const hits = await firecrawlSearch(currentSearchQuery({ name: seg.name, state: seg.state ?? undefined }), 3);
+      // Fetch 5 results (up from 3) — gives more coverage for busy corridors
+      const hits = await firecrawlSearch(currentSearchQuery({ name: seg.name, state: seg.state ?? undefined }), 5);
 
       for (const hit of hits) {
-        // Skip URLs we already processed for another segment in this batch
-        if (processedUrls.has(hit.url)) continue;
-        processedUrls.add(hit.url);
-
-        let scraped = { markdown: hit.description, title: hit.title };
-        try { scraped = await firecrawlScrape(hit.url); } catch { /* use snippet */ }
+        // Use cached scrape if available, otherwise fetch and cache
+        let scraped = scrapedCache.get(hit.url) ?? { markdown: hit.description, title: hit.title };
+        if (!scrapedCache.has(hit.url)) {
+          try { scraped = await firecrawlScrape(hit.url); } catch { /* use snippet */ }
+          scrapedCache.set(hit.url, scraped);
+        }
 
         const content = `${scraped.title}\n\n${scraped.markdown}`.trim();
         if (!content) {
@@ -120,6 +122,9 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
+        // Always analyse with THIS segment's context — same article may be relevant to
+        // multiple nearby segments (e.g. a Delhi jam article relevant to both
+        // "Patel Nagar" and "NH9" segments on the same corridor).
         const result = await analyzeNews(content, ctx);
         // Only accept ACTIVE (ongoing) events — not historical and not future scheduled
         const isCurrentDisruption = result.isRelevant
@@ -154,14 +159,19 @@ export async function POST(req: NextRequest) {
     if (bestRisk && bestRisk !== "safe") {
       await db`
         UPDATE adv_watched_segments
-        SET    has_disruption        = true,
-               disruption_risk_level = ${bestRisk},
-               disruption_title      = ${bestTitle},
-               disruption_summary    = ${bestSummary},
-               disruption_eta_hours  = ${bestEta},
-               disruption_category   = ${bestCategory},
-               disruption_sources    = ${db.json(sources as unknown as Parameters<typeof db.json>[0])},
-               last_checked_at       = now()
+        SET    has_disruption             = true,
+               disruption_risk_level     = ${bestRisk},
+               disruption_title          = ${bestTitle},
+               disruption_summary        = ${bestSummary},
+               disruption_eta_hours      = ${bestEta},
+               disruption_category       = ${bestCategory},
+               disruption_sources        = ${db.json(sources as unknown as Parameters<typeof db.json>[0])},
+               last_checked_at           = now(),
+               -- Only stamp first_seen on FIRST detection; keep original on re-scans
+               disruption_first_seen_at  = COALESCE(
+                 CASE WHEN has_disruption = true THEN disruption_first_seen_at ELSE NULL END,
+                 now()
+               )
         WHERE  id = ${seg.id}
       `;
       batchDisruptions++;
@@ -184,14 +194,15 @@ export async function POST(req: NextRequest) {
     } else {
       await db`
         UPDATE adv_watched_segments
-        SET    has_disruption        = false,
-               disruption_risk_level = null,
-               disruption_title      = null,
-               disruption_summary    = null,
-               disruption_eta_hours  = null,
-               disruption_category   = null,
-               disruption_sources    = ${db.json(sources as unknown as Parameters<typeof db.json>[0])},
-               last_checked_at       = now()
+        SET    has_disruption            = false,
+               disruption_risk_level    = null,
+               disruption_title         = null,
+               disruption_summary       = null,
+               disruption_eta_hours     = null,
+               disruption_category      = null,
+               disruption_sources       = ${db.json(sources as unknown as Parameters<typeof db.json>[0])},
+               last_checked_at          = now(),
+               disruption_first_seen_at = null
         WHERE  id = ${seg.id}
       `;
     }
