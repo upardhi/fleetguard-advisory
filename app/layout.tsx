@@ -18,9 +18,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FleetGuard · Gate Intelligence Platform",
+  title: "FleetAdvisory · AI Logistics Intelligence Platform",
   description:
-    "Enterprise gate & fleet security — compliance at every entry, face-verified movement, digital delivery confirmation, pan-India command visibility.",
+    "AI-powered logistics intelligence platform for monitoring corridor disruptions, political events, weather risks, strikes, traffic alerts, and operational advisories across India.",
   icons: { icon: "/favicon.ico" },
 };
 
