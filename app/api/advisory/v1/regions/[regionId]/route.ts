@@ -90,9 +90,17 @@ export async function GET(
   }[];
 
   // Deduplicate by title within each corridor
+  const staleThreshold = new Date(Date.now() - 26 * 3600 * 1000).toISOString();
+  const freshSegs = segments.filter((s) => {
+    if (!s.last_checked_at) return false;
+    return s.last_checked_at >= staleThreshold;
+  });
+
   const seenKeys = new Set<string>();
-  const dedupedSegs = segments.filter((s) => {
-    const key = `${s.route_id}::${(s.disruption_title ?? s.segment_name).trim().toLowerCase().slice(0, 60)}`;
+  const dedupedSegs = freshSegs.filter((s) => {
+    const titleNorm = (s.disruption_title ?? s.segment_name).trim().toLowerCase().slice(0, 80);
+    const stateNorm = (s.state ?? "").toLowerCase();
+    const key = `${stateNorm}::${titleNorm}`;
     if (seenKeys.has(key)) return false;
     seenKeys.add(key);
     return true;
@@ -115,27 +123,27 @@ export async function GET(
     .map(([state, segs]) => ({
       state,
       disruptions: segs.map((s) => ({
-        id:                   s.id,
-        segmentName:          s.segment_name,
-        title:                s.disruption_title ?? `Disruption on ${s.segment_name}`,
-        summary:              s.disruption_summary ?? "",
-        riskLevel:            s.disruption_risk_level as RiskLevel,
-        etaImpactHours:       s.disruption_eta_hours ?? 0,
-        category:             (s.disruption_category ?? "traffic") as DisruptionCategory,
-        routeId:              s.route_id,
-        routeName:            s.route_name,
-        lastCheckedAt:        s.last_checked_at,
-        firstSeenAt:          s.disruption_first_seen_at,
-        sources:              Array.isArray(s.disruption_sources)
+        id: s.id,
+        segmentName: s.segment_name,
+        title: s.disruption_title ?? `Disruption on ${s.segment_name}`,
+        summary: s.disruption_summary ?? "",
+        riskLevel: s.disruption_risk_level as RiskLevel,
+        etaImpactHours: s.disruption_eta_hours ?? 0,
+        category: (s.disruption_category ?? "traffic") as DisruptionCategory,
+        routeId: s.route_id,
+        routeName: s.route_name,
+        lastCheckedAt: s.last_checked_at,
+        firstSeenAt: s.disruption_first_seen_at,
+        sources: Array.isArray(s.disruption_sources)
           ? (s.disruption_sources as EventSource[]).filter((src) => src.isRelevant)
           : [],
       })),
     }));
 
   // Stats
-  const critical     = dedupedSegs.filter((s) => s.disruption_risk_level === "critical").length;
-  const high         = dedupedSegs.filter((s) => s.disruption_risk_level === "high").length;
-  const statesHit    = byState.size;
+  const critical = dedupedSegs.filter((s) => s.disruption_risk_level === "critical").length;
+  const high = dedupedSegs.filter((s) => s.disruption_risk_level === "high").length;
+  const statesHit = byState.size;
 
   let worstRisk = "safe";
   for (const s of dedupedSegs) {
@@ -162,20 +170,20 @@ export async function GET(
 
   return applySecurityHeaders(NextResponse.json({
     region: {
-      id:      region.id,
-      label:   region.label,
-      color:   region.color,
-      states:  region.states,
+      id: region.id,
+      label: region.label,
+      color: region.color,
+      states: region.states,
     },
     stats: {
-      disruptions:  dedupedSegs.length,
+      disruptions: dedupedSegs.length,
       critical,
       high,
       statesHit,
       worstRisk,
-      corridors:    corridors.length,
-      cities:       cities.length,
-      teamMembers:  teamMembers.length,
+      corridors: corridors.length,
+      cities: cities.length,
+      teamMembers: teamMembers.length,
       lastIntelAt,
     },
     stateGroups,
