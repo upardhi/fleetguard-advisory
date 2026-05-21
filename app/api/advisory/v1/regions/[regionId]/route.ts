@@ -60,13 +60,14 @@ export async function GET(
   }[];
 
   // Load ALL disrupted segments for this region's states.
-  // Only include segments checked within the last 36 hours — older flags are
-  // considered stale (the event has likely ended) and should not be shown.
+  // 26-hour staleness window — matches the main intelligence API.
+  // Segments not re-checked within 26h are treated as stale and hidden.
   const segments = await db`
     SELECT
       s.id, s.name AS segment_name, s.state, s.disruption_risk_level,
       s.disruption_title, s.disruption_summary, s.disruption_eta_hours,
       s.disruption_category, s.disruption_sources, s.last_checked_at,
+      s.disruption_first_seen_at,
       r.id AS route_id, r.name AS route_name
     FROM   adv_watched_segments s
     JOIN   adv_watched_routes   r ON r.id = s.watched_route_id
@@ -74,7 +75,7 @@ export async function GET(
       AND  r.is_active = true
       AND  s.has_disruption = true
       AND  s.disruption_risk_level IN ('critical', 'high')
-      AND  s.last_checked_at >= now() - interval '36 hours'
+      AND  s.last_checked_at >= now() - interval '26 hours'
       AND  s.state = ANY(${db.array(region.states)})
     ORDER BY
       CASE s.disruption_risk_level WHEN 'critical' THEN 1 WHEN 'high' THEN 2 ELSE 3 END,
@@ -84,7 +85,8 @@ export async function GET(
     disruption_risk_level: string; disruption_title: string | null;
     disruption_summary: string | null; disruption_eta_hours: number | null;
     disruption_category: string | null; disruption_sources: unknown;
-    last_checked_at: string | null; route_id: string; route_name: string;
+    last_checked_at: string | null; disruption_first_seen_at: string | null;
+    route_id: string; route_name: string;
   }[];
 
   // Deduplicate by title within each corridor
@@ -113,17 +115,18 @@ export async function GET(
     .map(([state, segs]) => ({
       state,
       disruptions: segs.map((s) => ({
-        id:              s.id,
-        segmentName:     s.segment_name,
-        title:           s.disruption_title ?? `Disruption on ${s.segment_name}`,
-        summary:         s.disruption_summary ?? "",
-        riskLevel:       s.disruption_risk_level as RiskLevel,
-        etaImpactHours:  s.disruption_eta_hours ?? 0,
-        category:        (s.disruption_category ?? "traffic") as DisruptionCategory,
-        routeId:         s.route_id,
-        routeName:       s.route_name,
-        lastCheckedAt:   s.last_checked_at,
-        sources:         Array.isArray(s.disruption_sources)
+        id:                   s.id,
+        segmentName:          s.segment_name,
+        title:                s.disruption_title ?? `Disruption on ${s.segment_name}`,
+        summary:              s.disruption_summary ?? "",
+        riskLevel:            s.disruption_risk_level as RiskLevel,
+        etaImpactHours:       s.disruption_eta_hours ?? 0,
+        category:             (s.disruption_category ?? "traffic") as DisruptionCategory,
+        routeId:              s.route_id,
+        routeName:            s.route_name,
+        lastCheckedAt:        s.last_checked_at,
+        firstSeenAt:          s.disruption_first_seen_at,
+        sources:              Array.isArray(s.disruption_sources)
           ? (s.disruption_sources as EventSource[]).filter((src) => src.isRelevant)
           : [],
       })),

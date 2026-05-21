@@ -49,6 +49,7 @@ interface SegmentDisruption {
   id: string; segmentName: string; title: string; summary: string;
   riskLevel: RiskLevel; etaImpactHours: number; category: DisruptionCategory;
   routeId: string; routeName: string; lastCheckedAt: string | null;
+  firstSeenAt: string | null;
   sources: EventSource[];
 }
 interface StateGroup  { state: string; disruptions: SegmentDisruption[] }
@@ -152,6 +153,25 @@ function DisruptionItem({ d, showRoute = true }: { d: SegmentDisruption; showRou
             <span className="text-[10px] bg-white text-slate-500 border border-slate-200 px-2 py-0.5 rounded-full">
               {CATEGORY_ICON[d.category] ?? "⚠"} {d.category}
             </span>
+            {/* How long disruption has been active */}
+            {d.firstSeenAt && (
+              <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full" title={`First detected: ${fmtDate(d.firstSeenAt)}`}>
+                🕐 ongoing {timeAgo(d.firstSeenAt)}
+              </span>
+            )}
+            {/* How fresh the underlying scan data is */}
+            {d.lastCheckedAt && (
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full ${
+                  Date.now() - new Date(d.lastCheckedAt).getTime() > 20 * 3600 * 1000
+                    ? "bg-amber-50 text-amber-600 border border-amber-200"
+                    : "bg-slate-100 text-slate-400"
+                }`}
+                title={`Scanned: ${fmtDate(d.lastCheckedAt)}`}
+              >
+                🔍 scanned {timeAgo(d.lastCheckedAt)}
+              </span>
+            )}
             {sources.length > 0 && (
               <button onClick={() => setOpen((v) => !v)} className="inline-flex items-center gap-0.5 text-[10px] text-brand-600 font-semibold hover:text-brand-800">
                 {sources.length} source{sources.length > 1 ? "s" : ""} {open ? <ChevronUp size={9} /> : <ChevronDown size={9} />}
@@ -187,18 +207,37 @@ function CitiesTab({
   const [search, setSearch]     = useState("");
   const [riskFilter, setFilter] = useState<"all" | "alerts" | "clear">("all");
 
-  const dispByState = useMemo(() => {
-    const m = new Map<string, SegmentDisruption[]>();
-    for (const g of stateGroups) m.set(g.state, g.disruptions);
-    return m;
-  }, [stateGroups]);
+  // Flat list of ALL disruptions across all states in this region
+  const allDisps = useMemo(() => stateGroups.flatMap((g) => g.disruptions), [stateGroups]);
 
   const cityView = useMemo(() => cities.map((city) => {
-    const disps = dispByState.get(city.state ?? "") ?? [];
-    const corrs = corridors.filter((c) => `${c.origin} ${c.destination} ${c.name}`.toLowerCase().includes(city.name.toLowerCase()));
-    const team  = teamMembers.filter((m) => m.city_name === city.name);
+    const cityLower = city.name.toLowerCase().trim();
+
+    // Corridors that serve this city (origin or destination contains city name)
+    const corrs = corridors.filter((c) =>
+      `${c.origin} ${c.destination} ${c.name}`.toLowerCase().includes(cityLower)
+    );
+    const servingRouteIds = new Set(corrs.map((c) => c.id));
+
+    // Match a disruption to this city if:
+    // 1. It is on a corridor that serves this city (origin/destination match)
+    // 2. The segment name is geographically near the city (name contains city or vice versa)
+    // 3. The disruption title or summary explicitly mentions the city by name
+    // This prevents Bangalore rain from bleeding into Dabaspet / Hubli cards.
+    const disps = allDisps.filter((d) => {
+      if (d.riskLevel !== "critical" && d.riskLevel !== "high") return false;
+      const segLow   = d.segmentName.toLowerCase();
+      const titLow   = d.title.toLowerCase();
+      const sumLow   = (d.summary ?? "").toLowerCase();
+      const onServingCorridor  = servingRouteIds.has(d.routeId);
+      const segMatchesCity     = segLow.includes(cityLower) || cityLower.includes(segLow);
+      const contentMentionsCity = titLow.includes(cityLower) || sumLow.includes(cityLower);
+      return onServingCorridor || segMatchesCity || contentMentionsCity;
+    });
+
+    const team = teamMembers.filter((m) => m.city_name === city.name);
     return { city, disps, corrs, team };
-  }), [cities, dispByState, corridors, teamMembers]);
+  }), [cities, allDisps, corridors, teamMembers]);
 
   const filtered = useMemo(() => {
     let list = cityView;
@@ -222,8 +261,86 @@ function CitiesTab({
 
   const alertCount = cityView.filter(({ disps }) => disps.length > 0).length;
 
+  // Region summary stats derived from the city view
+  const totalAlertsAcrossCities = cityView.reduce((n, { disps }) => n + disps.length, 0);
+  const citiesWithAlerts        = cityView.filter(({ disps }) => disps.length > 0);
+  const criticalCities          = citiesWithAlerts.filter(({ disps }) => disps.some((d) => d.riskLevel === "critical"));
+
   return (
     <div className="space-y-4">
+
+      {/* ── Regional summary strip ──────────────────────────────────────────── */}
+      <div className={`rounded-2xl border ${pal.border} ${pal.bg} px-5 py-4`}>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <p className={`text-[11px] font-bold uppercase tracking-widest ${pal.text} mb-1`}>Region Summary</p>
+            {totalAlertsAcrossCities === 0 ? (
+              <p className="text-sm font-semibold text-emerald-700 flex items-center gap-1.5">
+                <ShieldCheck size={14} /> All {cities.length} depot cities clear — no active disruptions on serving corridors
+              </p>
+            ) : (
+              <p className="text-sm font-semibold text-slate-800">
+                {citiesWithAlerts.length} of {cities.length} depot cities affected by active corridor disruptions
+              </p>
+            )}
+            {criticalCities.length > 0 && (
+              <p className="text-[12px] text-red-700 font-semibold mt-1 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block" />
+                Critical hold required at: {criticalCities.map(({ city }) => city.name).join(", ")}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-4 shrink-0 flex-wrap">
+            {citiesWithAlerts.length > 0 && (
+              <div className="text-center">
+                <div className="text-xl font-bold text-slate-800 num">{totalAlertsAcrossCities}</div>
+                <div className="text-[9px] text-slate-500 uppercase tracking-wider">Active Alerts</div>
+              </div>
+            )}
+            <div className="text-center">
+              <div className={`text-xl font-bold num ${pal.text}`}>{citiesWithAlerts.length}</div>
+              <div className="text-[9px] text-slate-500 uppercase tracking-wider">Cities Hit</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xl font-bold text-emerald-600 num">{cities.length - citiesWithAlerts.length}</div>
+              <div className="text-[9px] text-slate-500 uppercase tracking-wider">Cities Clear</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Top alerts across region */}
+        {totalAlertsAcrossCities > 0 && (
+          <div className="mt-3 pt-3 border-t border-white/40 space-y-1.5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Top Alerts Affecting Depots</p>
+            {cityView
+              .filter(({ disps }) => disps.length > 0)
+              .sort((a, b) => {
+                const aCrit = a.disps.filter((d) => d.riskLevel === "critical").length;
+                const bCrit = b.disps.filter((d) => d.riskLevel === "critical").length;
+                return bCrit - aCrit || b.disps.length - a.disps.length;
+              })
+              .slice(0, 4)
+              .map(({ city, disps }) => {
+                const worst = disps.find((d) => d.riskLevel === "critical") ?? disps[0];
+                return (
+                  <div key={city.id} className="flex items-start gap-2 bg-white/60 rounded-xl px-3 py-2">
+                    <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${worst.riskLevel === "critical" ? "bg-red-500" : "bg-orange-400"}`} />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[12px] font-semibold text-slate-800">{city.name}</span>
+                      <span className="text-[10px] text-slate-400 ml-2">{city.state}</span>
+                      <p className="text-[11px] text-slate-600 truncate mt-0.5">{worst.title}</p>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-1.5">
+                      {disps.length > 1 && <span className="text-[10px] text-slate-400">+{disps.length - 1} more</span>}
+                      <RiskBadge level={worst.riskLevel} size="xs" pulse={worst.riskLevel === "critical"} />
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </div>
+
       {/* Filter bar */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 max-w-sm">
@@ -330,7 +447,12 @@ function CitiesTab({
                     </div>
                   )}
                   {disps.length === 0 && corrs.length === 0 && team.length === 0 && (
-                    <div className="px-5 py-5 text-center text-[12px] text-slate-400">No active alerts, corridors, or team linked to this city.</div>
+                    <div className="px-5 py-5 text-center space-y-1">
+                      <p className="text-[12px] text-slate-400">No corridors with <span className="font-semibold">{city.name}</span> as origin or destination.</p>
+                      <p className="text-[11px] text-slate-300">
+                        Add a watched corridor with {city.name} as an endpoint to start receiving city-level intelligence.
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
@@ -472,7 +594,8 @@ function DisruptionsTab({ regionId }: { regionId: string }) {
                 riskLevel: d.risk, etaImpactHours: d.eta_impact_hours ?? 0,
                 category: d.category,
                 routeId: d.affectedRoutes[0] ?? "", routeName: d.affectedRoutes[0] ?? "",
-                lastCheckedAt: d.started_at,
+                lastCheckedAt: d.last_checked_at ?? null,
+                firstSeenAt: d.started_at ?? null,
                 sources: (d.sources as EventSource[] | undefined) ?? [],
               };
               return <DisruptionItem key={d.id} d={seg} />;
