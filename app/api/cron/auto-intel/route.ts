@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/app/_server/db/client";
+import { uuidv7 } from "@/app/_server/db/uuidv7";
 
 export const maxDuration = 60;
 
@@ -45,12 +46,11 @@ export async function POST(req: NextRequest) {
 
   let queued = 0;
   for (const route of routes) {
-    const jobId = crypto.randomUUID();
     await db`
       INSERT INTO adv_intel_jobs
         (id, org_id, route_id, status, segments_total, triggered_by)
       VALUES
-        (${jobId}, ${route.org_id}, ${route.route_id}, 'pending', ${route.segment_count}, 'auto-cron')
+        (${uuidv7()}, ${route.org_id}, ${route.route_id}, 'pending', ${route.segment_count}, 'auto-cron')
       ON CONFLICT DO NOTHING
     `;
     queued++;

@@ -48,15 +48,24 @@ export async function GET(req: NextRequest) {
   try { actor = await requireUser(req); }
   catch { return applySecurityHeaders(NextResponse.json({ error: "Unauthorized" }, { status: 401 })); }
 
-  const url = new URL(req.url);
+  const url      = new URL(req.url);
   const eventType = url.searchParams.get("eventType") ?? "all";
   const routeId   = url.searchParams.get("routeId");
+  const regionId  = url.searchParams.get("regionId");
   const limit     = Math.min(parseInt(url.searchParams.get("limit") ?? "100"), 200);
+
+  // Resolve region states for optional filtering
+  let regionStates: string[] = [];
+  if (regionId) {
+    const [region] = await db`
+      SELECT states FROM adv_regions WHERE id = ${regionId}
+    ` as unknown as { states: string[] }[];
+    if (region) regionStates = region.states;
+  }
 
   const rows = (await db`
     SELECT
       ce.id, ce.org_id, ce.watched_route_id, ce.segment_id,
-      -- Dynamically reclassify event_type based on current date
       CASE
         WHEN ce.event_start_at IS NULL                              THEN 'scheduled'
         WHEN ce.event_start_at > now()                             THEN 'scheduled'
@@ -82,6 +91,16 @@ export async function GET(req: NextRequest) {
               ELSE 'historical'
             END = ${eventType})
       AND  (${routeId ?? null}::text IS NULL OR ce.watched_route_id = ${routeId ?? null})
+      AND  (
+        ${regionStates.length === 0}
+        OR r.region_id = ${regionId ?? null}
+        OR EXISTS (
+          SELECT 1 FROM adv_watched_segments s
+          WHERE s.watched_route_id = ce.watched_route_id
+            AND s.state = ANY(${db.array(regionStates.length > 0 ? regionStates : ["__none__"])})
+          LIMIT 1
+        )
+      )
     ORDER  BY
       CASE
         WHEN ce.event_start_at IS NULL OR ce.event_start_at > now()             THEN 1

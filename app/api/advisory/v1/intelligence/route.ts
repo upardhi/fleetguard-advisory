@@ -101,46 +101,95 @@ interface MapSegmentRow {
 
 // GET /api/advisory/v1/intelligence
 // Returns aggregated real data from watched corridors for all advisory pages.
+// Optional ?regionId=east  — filters all data to a single ITC ops region.
 export async function GET(req: NextRequest) {
   let actor;
   try { actor = await requireUser(req); }
   catch { return applySecurityHeaders(NextResponse.json({ error: "Unauthorized" }, { status: 401 })); }
 
-  const [disruptedRows, corridors, mapSegments] = await Promise.all([
-    db`
-      SELECT
-        s.id, s.name, s.segment_type, s.state,
-        s.disruption_risk_level, s.disruption_title, s.disruption_summary,
-        s.disruption_eta_hours, s.disruption_category, s.disruption_sources,
-        s.last_checked_at, s.lat, s.lng,
-        r.id          AS corridor_id,
-        r.name        AS corridor_name,
-        r.origin, r.destination
-      FROM   adv_watched_segments s
-      JOIN   adv_watched_routes   r ON r.id = s.watched_route_id
-      WHERE  r.org_id        = ${actor.org}
-        AND  r.is_active      = true
-        AND  s.has_disruption = true
-        AND  s.disruption_risk_level IS NOT NULL
-        AND  s.disruption_risk_level != 'safe'
-      ORDER BY
-        CASE s.disruption_risk_level
-          WHEN 'critical' THEN 1
-          WHEN 'high'     THEN 2
-          WHEN 'medium'   THEN 3
-          WHEN 'low'      THEN 4
-          ELSE 5
-        END,
-        s.disruption_eta_hours DESC NULLS LAST
-    ` as unknown as (SegmentRow & { lat: string | null; lng: string | null })[],
+  const url      = new URL(req.url);
+  const regionId = url.searchParams.get("regionId");
 
-    db`
-      SELECT id, name, origin, destination, max_risk_level,
-             disruption_count, last_intel_at, routes_fetched
-      FROM   adv_watched_routes
-      WHERE  org_id = ${actor.org} AND is_active = true
-      ORDER  BY created_at DESC
-    ` as unknown as CorridorRow[],
+  // Resolve region states for optional filtering
+  let regionStates: string[] = [];
+  if (regionId) {
+    const [region] = await db`
+      SELECT states FROM adv_regions WHERE id = ${regionId}
+    ` as unknown as { states: string[] }[];
+    if (region) regionStates = region.states;
+  }
+
+  const [disruptedRows, corridors, mapSegments] = await Promise.all([
+    regionStates.length > 0
+      ? db`
+          SELECT
+            s.id, s.name, s.segment_type, s.state,
+            s.disruption_risk_level, s.disruption_title, s.disruption_summary,
+            s.disruption_eta_hours, s.disruption_category, s.disruption_sources,
+            s.last_checked_at, s.lat, s.lng,
+            r.id          AS corridor_id,
+            r.name        AS corridor_name,
+            r.origin, r.destination
+          FROM   adv_watched_segments s
+          JOIN   adv_watched_routes   r ON r.id = s.watched_route_id
+          WHERE  r.org_id        = ${actor.org}
+            AND  r.is_active      = true
+            AND  s.has_disruption = true
+            AND  s.disruption_risk_level IS NOT NULL
+            AND  s.disruption_risk_level != 'safe'
+            AND  s.state = ANY(${db.array(regionStates)})
+          ORDER BY
+            CASE s.disruption_risk_level
+              WHEN 'critical' THEN 1 WHEN 'high' THEN 2
+              WHEN 'medium'   THEN 3 WHEN 'low'  THEN 4 ELSE 5
+            END,
+            s.disruption_eta_hours DESC NULLS LAST
+        ` as unknown as (SegmentRow & { lat: string | null; lng: string | null })[]
+      : db`
+          SELECT
+            s.id, s.name, s.segment_type, s.state,
+            s.disruption_risk_level, s.disruption_title, s.disruption_summary,
+            s.disruption_eta_hours, s.disruption_category, s.disruption_sources,
+            s.last_checked_at, s.lat, s.lng,
+            r.id          AS corridor_id,
+            r.name        AS corridor_name,
+            r.origin, r.destination
+          FROM   adv_watched_segments s
+          JOIN   adv_watched_routes   r ON r.id = s.watched_route_id
+          WHERE  r.org_id        = ${actor.org}
+            AND  r.is_active      = true
+            AND  s.has_disruption = true
+            AND  s.disruption_risk_level IS NOT NULL
+            AND  s.disruption_risk_level != 'safe'
+          ORDER BY
+            CASE s.disruption_risk_level
+              WHEN 'critical' THEN 1 WHEN 'high' THEN 2
+              WHEN 'medium'   THEN 3 WHEN 'low'  THEN 4 ELSE 5
+            END,
+            s.disruption_eta_hours DESC NULLS LAST
+        ` as unknown as (SegmentRow & { lat: string | null; lng: string | null })[],
+
+    regionStates.length > 0
+      ? db`
+          SELECT id, name, origin, destination, max_risk_level,
+                 disruption_count, last_intel_at, routes_fetched
+          FROM   adv_watched_routes
+          WHERE  org_id = ${actor.org} AND is_active = true
+            AND  (region_id = ${regionId} OR EXISTS (
+              SELECT 1 FROM adv_watched_segments s
+              WHERE s.watched_route_id = adv_watched_routes.id
+                AND s.state = ANY(${db.array(regionStates)})
+              LIMIT 1
+            ))
+          ORDER BY created_at DESC
+        ` as unknown as CorridorRow[]
+      : db`
+          SELECT id, name, origin, destination, max_risk_level,
+                 disruption_count, last_intel_at, routes_fetched
+          FROM   adv_watched_routes
+          WHERE  org_id = ${actor.org} AND is_active = true
+          ORDER  BY created_at DESC
+        ` as unknown as CorridorRow[],
 
     // Primary route path (variant 0) for each corridor — for map rendering
     db`

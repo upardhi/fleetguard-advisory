@@ -62,8 +62,22 @@ const FUTURE_KEYWORDS = [
   "is expected", "is likely", "proposed", "set to",
 ];
 
-const HIGH_RISK_WORDS   = ["blocked", "closed", "stranded", "suspended", "shut", "impassable", "submerged"];
-const CRITICAL_WORDS    = ["complete shutdown", "indefinite", "severe", "washed away", "collapsed"];
+// Critical: events that stop movement entirely
+const CRITICAL_WORDS = [
+  "bandh", "chakka jam", "truckers strike", "transport strike", "driver strike",
+  "complete shutdown", "indefinite", "washed away", "collapsed", "bridge collapse",
+  "curfew", "section 144", "riot", "communal", "mob violence", "road roko",
+  "landslide blocking", "highway blocked", "flooded road", "submerged",
+  "cargo theft", "hijack", "highway robbery", "extortion zone", "vehicle arson",
+  "road washout", "cyclone",
+];
+// High: events that cause major delay or rerouting
+const HIGH_RISK_WORDS = [
+  "highway closure", "nh closed", "sh closed", "toll plaza blocked",
+  "border closed", "check post congestion", "vehicle ban", "movement restriction",
+  "fuel strike", "diesel shortage", "pump strike", "night ban",
+  "procession blocking", "yatra", "mela road closure",
+];
 
 // Try to extract a date from text like "June 15", "15th June 2026", etc.
 const MONTH_MAP: Record<string, string> = {
@@ -102,11 +116,13 @@ function heuristicAnalyze(content: string, ctx: AnalyzeContext): AnalyzedDisrupt
   const lower = content.toLowerCase();
   const { category, score } = classify(content);
 
-  let riskLevel: RiskLevel = "low";
-  let etaImpactHours = 0.5;
-  if (CRITICAL_WORDS.some((w) => lower.includes(w)))     { riskLevel = "critical"; etaImpactHours = 8; }
-  else if (HIGH_RISK_WORDS.some((w) => lower.includes(w))) { riskLevel = "high";  etaImpactHours = 4; }
-  else if (score >= 2)                                     { riskLevel = "medium"; etaImpactHours = 2; }
+  const isCritical = CRITICAL_WORDS.some((w) => lower.includes(w));
+  const isHigh     = HIGH_RISK_WORDS.some((w) => lower.includes(w));
+
+  // Heuristic only surfaces actionable (critical/high) events — never medium/low noise
+  const isRelevant = isCritical || isHigh;
+  const riskLevel: RiskLevel  = isCritical ? "critical" : isHigh ? "high" : "safe";
+  const etaImpactHours        = isCritical ? 8 : isHigh ? 4 : 0;
 
   const isFuture = FUTURE_KEYWORDS.some((w) => lower.includes(w));
   const eventDate = extractDate(content);
@@ -115,7 +131,7 @@ function heuristicAnalyze(content: string, ctx: AnalyzeContext): AnalyzedDisrupt
   const firstLine = content.split("\n").find((l) => l.trim().length > 20)?.trim() ?? content.slice(0, 120);
 
   return {
-    isRelevant: score > 0 || HIGH_RISK_WORDS.some((w) => lower.includes(w)),
+    isRelevant,
     category,
     title:    firstLine.slice(0, 90),
     summary:  content.slice(0, 240).replace(/\s+/g, " ").trim(),
@@ -132,24 +148,53 @@ function heuristicAnalyze(content: string, ctx: AnalyzeContext): AnalyzedDisrupt
 
 // ── OpenAI analysis ───────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a logistics risk analyst for an Indian fleet management and trucking advisory platform.
+const SYSTEM_PROMPT = `You are a senior logistics risk analyst for an Indian fleet operations platform.
+Your job is NOT to report the news — it is to surface ONLY events that require fleet managers to take a concrete action (hold, reroute, delay, or escalate a dispatch).
 
-Given a news article and a road segment, determine whether it describes ANY transport disruption — current OR future.
-CRITICAL: Detect future planned events (PM/CM visits, bandh, election rallies, religious processions, road closures) even if they haven't started yet — fleet planners need advance warning to plan routes.
+━━━ ACTIONABLE TAXONOMY — only these qualify as relevant ━━━
+
+CRITICAL (isRelevant=true, riskLevel="critical") — causes dispatch stoppage or severe delay:
+• Political / Civil Agitation — Bharat bandh, state bandh, chakka jam, farmer protest, political blockade, district-level agitation, road-roko
+• Labour / Transport Union Action — truckers' strike, transport union strike, driver strike, loading-labour agitation near industrial/warehouse areas
+• Law & Order Disruption — riot, communal tension, curfew, Section 144, mob violence, highway mob blockade
+• Natural Disaster on Roads — flooded roads, landslide blocking highway, bridge collapse, road washout, cyclone cutting access
+• Security Threat on Route — cargo theft alert, hijack risk, highway robbery, extortion zone, vehicle arson during unrest
+• Strategic Corridor Disruption — closure of key factory-to-warehouse or inter-city freight artery, industrial belt access blockage
+
+HIGH (isRelevant=true, riskLevel="high") — causes significant delay or rerouting:
+• Highway / Corridor Blockage — national highway closure, state highway closure, toll plaza blockade, border check-post congestion
+• Regulatory / Government Restriction — inter-state movement ban, pollution-based vehicle ban, city entry restriction, night-movement enforcement
+• Fuel / Transport Infrastructure Disruption — fuel pump strike, major diesel shortage, widespread toll-system failure
+• Large Religious Event / Yatra / Mela with confirmed road impact on freight routes
+
+━━━ DO NOT REPORT — set isRelevant=false ━━━
+✗ Routine traffic jams or minor congestion (no physical blockage)
+✗ Light rain, morning fog, or ordinary weather without road closure
+✗ Minor accidents that have been cleared
+✗ Religious processions limited to city lanes not used by freight
+✗ VIP/VVIP movement unless it causes a multi-hour NH/SH closure
+✗ Construction or pothole news without active road closure
+✗ General political speeches, meetings, or rallies without transport impact
+✗ Any event where freight movement is possible with minor delay (<1 hour)
+✗ Anything medium-risk, low-risk, or local in nature that does not block a freight corridor
+
+━━━ KEY PRINCIPLE ━━━
+If a truck driver can pass through with minor inconvenience, it is NOT relevant.
+Only flag when a fleet manager must take a DECISION today — hold the truck, reroute, or escalate.
 
 Respond ONLY with minified JSON:
 {"isRelevant":boolean,"category":"political|weather|traffic|security|infrastructure|religious|vvip|natural_disaster","title":string,"summary":string,"detail":string,"riskLevel":"critical|high|medium|low|safe","etaImpactHours":number,"confidence":number,"affectedLocation":string,"affectedHighway":string|null,"eventType":"ongoing|scheduled|historical","eventDate":"YYYY-MM-DD"|null,"durationDays":number}
 
-Rules:
-- eventType="scheduled"  if the event is announced for a FUTURE date (highest priority to detect)
-- eventType="ongoing"    if the disruption is happening NOW (active in the last few days)
-- eventType="historical" if the event has already concluded
-- eventDate: extract specific date if mentioned ("June 15" → "YYYY-06-15", "next Monday" → calculate from today). null if unclear.
-- durationDays: expected duration in days. 1 for single-day events. 0 if unknown.
-- title: max 90 chars. summary: max 240 chars. detail: max 600 chars.
-- etaImpactHours: expected extra delay for trucks. confidence: 0-100.
-- isRelevant=false ONLY if completely unrelated to transport on this segment.
-- For future scheduled events: set appropriate riskLevel for when the event occurs.`;
+Field rules:
+- isRelevant=true ONLY for Critical or High events from the taxonomy above. Everything else is false.
+- riskLevel must be "critical" or "high" when isRelevant=true. Never return medium/low/safe with isRelevant=true.
+- eventType="scheduled" — announced for a future date (highest fleet-planning value)
+- eventType="ongoing"   — active disruption happening now (last 7 days)
+- eventType="historical"— event has concluded; set isRelevant=false
+- eventDate: specific ISO date if extractable, else null
+- durationDays: 1 for single-day events, 0 if unknown
+- etaImpactHours: realistic extra truck delay — minimum 2h for high, 4h+ for critical
+- title ≤90 chars. summary ≤240 chars. detail ≤600 chars. confidence 0-100.`;
 
 async function openaiAnalyze(content: string, ctx: AnalyzeContext): Promise<AnalyzedDisruption> {
   const today = ctx.todayIso ?? new Date().toISOString().slice(0, 10);

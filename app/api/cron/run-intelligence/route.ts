@@ -124,11 +124,15 @@ export async function POST(req: NextRequest) {
           scrapedAt: now,
         });
 
-        if (isCurrentDisruption && (RISK_ORDER[result.riskLevel] ?? 0) > (RISK_ORDER[bestRisk ?? "safe"] ?? 0)) {
-          bestRisk    = result.riskLevel;
-          bestTitle   = result.title;
-          bestSummary = result.summary;
-          bestEta     = result.etaImpactHours;
+        // Hard filter: only Critical and High events are actionable — discard medium/low/safe
+        const isActionable = isCurrentDisruption &&
+          (result.riskLevel === "critical" || result.riskLevel === "high");
+
+        if (isActionable && (RISK_ORDER[result.riskLevel] ?? 0) > (RISK_ORDER[bestRisk ?? "safe"] ?? 0)) {
+          bestRisk     = result.riskLevel;
+          bestTitle    = result.title;
+          bestSummary  = result.summary;
+          bestEta      = result.etaImpactHours;
           bestCategory = result.category;
         }
       }
@@ -151,6 +155,22 @@ export async function POST(req: NextRequest) {
         WHERE  id = ${seg.id}
       `;
       batchDisruptions++;
+
+      // ── Notify users whose region/city matches this segment's state ──────
+      try {
+        await createNotificationsForDisruption({
+          orgId:     job.org_id,
+          routeId:   job.route_id,
+          segmentId: seg.id,
+          state:     seg.state,
+          title:     bestTitle ?? `Disruption on ${seg.name}`,
+          summary:   bestSummary,
+          riskLevel: bestRisk,
+          category:  bestCategory,
+        });
+      } catch (err) {
+        console.error(`[cron] notification creation failed for ${seg.name}:`, err);
+      }
     } else {
       await db`
         UPDATE adv_watched_segments
@@ -179,7 +199,9 @@ export async function POST(req: NextRequest) {
 
         const result = await analyzeNews(content, ctx);
 
-        if (result.isRelevant && result.eventType === "scheduled") {
+        // Only store scheduled events that are Critical or High — filter out noise
+        if (result.isRelevant && result.eventType === "scheduled" &&
+            (result.riskLevel === "critical" || result.riskLevel === "high")) {
           const eventSrc: EventSource[] = [{
             url: hit.url,
             title: scraped.title || hit.title,
@@ -226,7 +248,7 @@ export async function POST(req: NextRequest) {
       UPDATE adv_intel_jobs
       SET    segments_done     = ${newDone},
              disruptions_found = ${newDisruptions},
-             status            = 'done',
+             status            = 'completed',
              finished_at       = now()
       WHERE  id = ${job.id}
     `;
@@ -250,10 +272,67 @@ export async function POST(req: NextRequest) {
   });
 }
 
+// ── Notification helper ────────────────────────────────────────────────────────
+// Finds all users in the same org whose preferred region covers this state,
+// then inserts a notification for each — deduplicating by (user_id, title prefix)
+// within the last 20 hours so we don't spam on repeated scans.
+async function createNotificationsForDisruption({
+  orgId, routeId, segmentId, state, title, summary, riskLevel, category,
+}: {
+  orgId: string; routeId: string; segmentId: string;
+  state: string | null; title: string; summary: string | null;
+  riskLevel: string | null; category: string | null;
+}) {
+  if (!state) return;
+
+  // Find region whose states[] contains this state
+  const [region] = await db`
+    SELECT id FROM adv_regions
+    WHERE ${state} = ANY(states)
+    LIMIT 1
+  ` as { id: string }[];
+
+  if (!region) return;
+
+  // Find users in this org assigned to this region (or with no preference = gets all)
+  const users = await db`
+    SELECT user_id FROM adv_user_prefs
+    WHERE org_id   = ${orgId}
+      AND region_id = ${region.id}
+  ` as unknown as { user_id: string }[];
+
+  if (users.length === 0) return;
+
+  const titleKey = title.slice(0, 60).toLowerCase();
+
+  for (const { user_id } of users) {
+    // Dedup: skip if same user already has this notification in last 20h
+    const [existing] = await db`
+      SELECT 1 FROM adv_notifications
+      WHERE user_id = ${user_id}
+        AND lower(left(title, 60)) = ${titleKey}
+        AND created_at > now() - interval '20 hours'
+      LIMIT 1
+    ` as unknown as unknown[];
+
+    if (existing) continue;
+
+    await db`
+      INSERT INTO adv_notifications
+        (id, org_id, user_id, region_id, title, body, risk_level, category, segment_id, route_id)
+      VALUES (
+        ${crypto.randomUUID()}, ${orgId}, ${user_id}, ${region.id},
+        ${title}, ${summary ?? null}, ${riskLevel ?? null}, ${category ?? null},
+        ${segmentId}, ${routeId}
+      )
+    `;
+  }
+}
+
 async function finishJob(job: Job) {
   await db`
     UPDATE adv_intel_jobs
-    SET    status = 'done', finished_at = now()
+    SET    status = 'completed', finished_at = now()
     WHERE  id = ${job.id}
   `;
   await refreshRouteSummary(job.route_id);

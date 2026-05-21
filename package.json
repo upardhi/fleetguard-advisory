@@ -22,7 +22,8 @@
     "export:docufast": "tsx scripts/export-docu-fast.ts",
     "migrate:docufast": "tsx scripts/migrate-from-docu-fast.ts",
     "analyze:docufast": "tsx scripts/analyze-docu-fast.ts",
-    "test:migrate10": "tsx scripts/test-migrate-10.ts"
+    "test:migrate10": "tsx scripts/test-migrate-10.ts",
+    "migrate:regions": "tsx --env-file=.env.local scripts/migrate-advisory-regions.ts"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.21",

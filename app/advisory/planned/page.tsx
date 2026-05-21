@@ -7,6 +7,7 @@ import {
   Loader2, Trash2, RefreshCw, Clock,
 } from "lucide-react";
 import { TopBar } from "@/app/_components/TopBar";
+import RegionFilterBar, { type RegionId } from "@/app/_components/RegionFilterBar";
 
 interface WatchedRoute {
   id: string;
@@ -43,13 +44,17 @@ function timeAgo(iso: string | null): string {
 export default function WatchedCorridorsPage() {
   const [routes, setRoutes]       = useState<WatchedRoute[]>([]);
   const [loading, setLoading]     = useState(true);
+  const [region, setRegion]       = useState<RegionId>("all");
   const [showModal, setShowModal] = useState(false);
   const [deleting, setDeleting]   = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (r: RegionId = "all") => {
     setLoading(true);
     try {
-      const res = await fetch("/api/advisory/v1/watched-routes", { credentials: "include" });
+      const url = r === "all"
+        ? "/api/advisory/v1/watched-routes"
+        : `/api/advisory/v1/watched-routes?regionId=${r}`;
+      const res = await fetch(url, { credentials: "include" });
       if (res.ok) {
         const data = await res.json() as { routes: WatchedRoute[] };
         setRoutes(data.routes);
@@ -59,7 +64,12 @@ export default function WatchedCorridorsPage() {
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load("all"); }, [load]);
+
+  function handleRegionChange(r: RegionId) {
+    setRegion(r);
+    void load(r);
+  }
 
   async function handleDelete(id: string) {
     setDeleting(id);
@@ -76,6 +86,8 @@ export default function WatchedCorridorsPage() {
       <TopBar title="Watched Corridors" subtitle={`${routes.length} routes under active surveillance`} />
       <div className="flex-1 overflow-auto p-6 bg-slate-50">
         <div className="max-w-5xl mx-auto space-y-5">
+          <RegionFilterBar value={region} onChange={handleRegionChange} />
+
           <div className="flex items-center justify-between">
             <Link href="/advisory" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800">
               <ArrowLeft size={14} />Back to Control Tower
@@ -165,13 +177,13 @@ export default function WatchedCorridorsPage() {
           )}
 
           <div className="flex justify-end">
-            <button onClick={() => void load()} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600">
+            <button onClick={() => void load(region)} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600">
               <RefreshCw size={12} />Refresh
             </button>
           </div>
         </div>
       </div>
-      {showModal && <AddCorridorModal onClose={() => setShowModal(false)} onCreated={() => { setShowModal(false); void load(); }} />}
+      {showModal && <AddCorridorModal onClose={() => setShowModal(false)} onCreated={() => { setShowModal(false); void load(region); }} />}
     </div>
   );
 }

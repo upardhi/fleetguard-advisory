@@ -1,7 +1,8 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { TopBar } from "@/app/_components/TopBar";
 import RiskBadge from "@/app/_components/RiskBadge";
+import RegionFilterBar, { type RegionId } from "@/app/_components/RegionFilterBar";
 import {
   Route, Loader2, Clock, CheckCircle, XCircle,
   BarChart3, Navigation, Zap, MapPin, ArrowRight,
@@ -81,17 +82,31 @@ function computeVariant(segments: WatchedSegment[], variant: number): VariantAna
 export default function RouteAnalysisPage() {
   const [corridors, setCorridors]       = useState<Corridor[]>([]);
   const [loadingCors, setLoadingCors]   = useState(true);
+  const [region, setRegion]             = useState<RegionId>("all");
   const [selectedId, setSelectedId]     = useState<string>("");
   const [segments, setSegments]         = useState<WatchedSegment[] | null>(null);
   const [loadingAna, setLoadingAna]     = useState(false);
 
-  useEffect(() => {
-    fetch("/api/advisory/v1/intelligence", { credentials: "include" })
-      .then((r) => r.json())
+  const loadCorridors = useCallback((r: RegionId) => {
+    setLoadingCors(true);
+    setSelectedId("");
+    setSegments(null);
+    const url = r === "all"
+      ? "/api/advisory/v1/intelligence"
+      : `/api/advisory/v1/intelligence?regionId=${r}`;
+    fetch(url, { credentials: "include" })
+      .then((res) => res.json())
       .then((d: { corridors: Corridor[] }) => setCorridors(d.corridors ?? []))
       .catch(console.error)
       .finally(() => setLoadingCors(false));
   }, []);
+
+  useEffect(() => { loadCorridors("all"); }, [loadCorridors]);
+
+  function handleRegionChange(r: RegionId) {
+    setRegion(r);
+    loadCorridors(r);
+  }
 
   async function handleAnalyze() {
     if (!selectedId) return;
@@ -151,6 +166,9 @@ export default function RouteAnalysisPage() {
 
       <div className="flex-1 overflow-auto">
         <div className="p-6 max-w-screen-2xl mx-auto">
+          {/* Region filter */}
+          <RegionFilterBar value={region} onChange={handleRegionChange} className="mb-4" />
+
           <div className="grid xl:grid-cols-3 gap-6 items-start">
 
             {/* Left: corridor selector */}

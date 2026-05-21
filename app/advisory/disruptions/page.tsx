@@ -1,9 +1,10 @@
 "use client";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { TopBar } from "@/app/_components/TopBar";
 import RiskBadge from "@/app/_components/RiskBadge";
 import CategoryBadge from "@/app/_components/Badge";
 import DisruptionCard from "@/app/_components/DisruptionCard";
+import RegionFilterBar, { type RegionId } from "@/app/_components/RegionFilterBar";
 import { categoryIcon, categoryLabel, timeAgo } from "@/app/_lib/utils";
 import type { Disruption, DisruptionCategory, RiskLevel } from "@/app/_lib/types";
 import {
@@ -24,15 +25,22 @@ export default function DisruptionsPage() {
   const [disruptions, setDisruptions]   = useState<Disruption[]>([]);
   const [corridors, setCorridors]       = useState<Corridor[]>([]);
   const [loading, setLoading]           = useState(true);
+  const [region, setRegion]             = useState<RegionId>("all");
   const [search, setSearch]             = useState("");
   const [catFilter, setCatFilter]       = useState<DisruptionCategory | "all">("all");
   const [riskFilter, setRiskFilter]     = useState<RiskLevel | "all">("all");
   const [corridorFilter, setCorridorFilter] = useState<string>("all");
   const [selected, setSelected]         = useState<Disruption | null>(null);
 
-  useEffect(() => {
-    fetch("/api/advisory/v1/intelligence", { credentials: "include" })
-      .then((r) => r.json())
+  const load = useCallback((r: RegionId) => {
+    setLoading(true);
+    setSelected(null);
+    setCorridorFilter("all");
+    const url = r === "all"
+      ? "/api/advisory/v1/intelligence"
+      : `/api/advisory/v1/intelligence?regionId=${r}`;
+    fetch(url, { credentials: "include" })
+      .then((res) => res.json())
       .then((d: { disruptions: Disruption[]; corridors: Corridor[] }) => {
         setDisruptions(d.disruptions ?? []);
         setCorridors(d.corridors ?? []);
@@ -40,6 +48,13 @@ export default function DisruptionsPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { load("all"); }, [load]);
+
+  function handleRegionChange(r: RegionId) {
+    setRegion(r);
+    load(r);
+  }
 
   const filtered = useMemo(() => {
     return disruptions.filter((d) => {
@@ -85,6 +100,9 @@ export default function DisruptionsPage() {
 
           {/* Filters */}
           <div className="bg-white border-b border-slate-200 px-4 py-3 space-y-2.5 shrink-0">
+            {/* Region filter */}
+            <RegionFilterBar value={region} onChange={handleRegionChange} />
+
             {/* Corridor filter pills */}
             {corridors.length > 0 && (
               <div className="flex gap-1.5 overflow-x-auto pb-0.5">

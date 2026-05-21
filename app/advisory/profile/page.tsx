@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   User, Mail, Building2, Warehouse, Shield,
-  ExternalLink, LogOut, ArrowLeft, KeyRound,
+  ExternalLink, LogOut, ArrowLeft, KeyRound, MapPin, Check, Loader2,
 } from "lucide-react";
 import { TopBar } from "@/app/_components/TopBar";
 import { useAdvisory } from "@/app/_contexts/AdvisoryContext";
@@ -27,10 +27,72 @@ const ROLE_COLORS: Record<string, string> = {
   super_admin:      "bg-red-50 text-red-700",
 };
 
+const REGION_META_LOCAL = {
+  north: { label: "North", color: "text-blue-700",    bg: "bg-blue-50",    border: "border-blue-200" },
+  east:  { label: "East",  color: "text-orange-700",  bg: "bg-orange-50",  border: "border-orange-200" },
+  west:  { label: "West",  color: "text-purple-700",  bg: "bg-purple-50",  border: "border-purple-200" },
+  south: { label: "South", color: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-200" },
+};
+
+interface UserPrefs {
+  region_id:  string | null;
+  city_id:    string | null;
+  city_name:  string | null;
+  city_state: string | null;
+  cities:     { id: string; name: string; state: string | null }[];
+}
+
 export default function ProfilePage() {
   const { user, selectedWarehouse } = useAdvisory();
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [prefs, setPrefs]           = useState<UserPrefs | null>(null);
+  const [prefRegion, setPrefRegion] = useState<string>("");
+  const [prefCity, setPrefCity]     = useState<string>("");
+  const [prefCities, setPrefCities] = useState<{ id: string; name: string; state: string | null }[]>([]);
+  const [savingPrefs, setSavingPrefs] = useState(false);
+  const [prefsSaved, setPrefsSaved]   = useState(false);
+
+  useEffect(() => {
+    fetch("/api/advisory/v1/user-prefs", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d: UserPrefs) => {
+        setPrefs(d);
+        setPrefRegion(d.region_id ?? "");
+        setPrefCity(d.city_id ?? "");
+        setPrefCities(d.cities);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function onRegionChange(regionId: string) {
+    setPrefRegion(regionId);
+    setPrefCity("");
+    // Load cities for this region
+    const res = await fetch("/api/advisory/v1/user-prefs", { credentials: "include" });
+    if (!res.ok) return;
+    // Re-fetch with region filter — actually just load from the region API
+    const r2 = await fetch(`/api/advisory/v1/regions/${regionId}`, { credentials: "include" });
+    if (r2.ok) {
+      const d = await r2.json() as { cities: { id: string; name: string; state: string | null }[] };
+      setPrefCities(d.cities ?? []);
+    }
+  }
+
+  async function savePrefs() {
+    setSavingPrefs(true);
+    try {
+      await fetch("/api/advisory/v1/user-prefs", {
+        method: "PUT", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ region_id: prefRegion || null, city_id: prefCity || null }),
+      });
+      setPrefsSaved(true);
+      setTimeout(() => setPrefsSaved(false), 3000);
+    } finally {
+      setSavingPrefs(false);
+    }
+  }
 
   useEffect(() => {
     if (!user) router.replace("/login");
@@ -115,6 +177,92 @@ export default function ProfilePage() {
                 <KeyRound size={13} className="text-slate-400" />
                 Need to update your name or email? Contact your administrator.
               </div>
+            </div>
+          </div>
+
+          {/* Ops Region & City assignment */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+              <MapPin size={15} className="text-brand-600" />
+              <div>
+                <h2 className="text-sm font-semibold text-slate-800">My Ops Region &amp; City</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Disruption alerts will be scoped to your assigned region</p>
+              </div>
+            </div>
+            <div className="p-5 space-y-4">
+              {/* Region selector */}
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Region</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {(Object.entries(REGION_META_LOCAL) as [string, typeof REGION_META_LOCAL[keyof typeof REGION_META_LOCAL]][]).map(([id, meta]) => (
+                    <button
+                      key={id}
+                      onClick={() => onRegionChange(id)}
+                      className={`flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
+                        prefRegion === id
+                          ? `${meta.bg} ${meta.color} ${meta.border} ring-2 ring-offset-1 ${meta.border.replace("border-", "ring-")}`
+                          : "bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      <span>{meta.label}</span>
+                      {prefRegion === id && <Check size={14} />}
+                    </button>
+                  ))}
+                </div>
+                {!prefRegion && (
+                  <p className="text-xs text-slate-400 mt-2">Select your primary operations region</p>
+                )}
+              </div>
+
+              {/* City selector */}
+              {prefRegion && prefCities.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Depot City</p>
+                  <select
+                    value={prefCity}
+                    onChange={(e) => setPrefCity(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-brand-400"
+                  >
+                    <option value="">— All cities in {REGION_META_LOCAL[prefRegion as keyof typeof REGION_META_LOCAL]?.label} region —</option>
+                    {prefCities.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}{c.state ? ` · ${c.state}` : ""}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-slate-400 mt-1.5">
+                    Only alerts from your city will trigger notifications. Leave blank to receive all region alerts.
+                  </p>
+                </div>
+              )}
+
+              {/* Save button */}
+              {prefRegion && (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={savePrefs}
+                    disabled={savingPrefs}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-brand-700 text-white rounded-xl hover:bg-brand-800 transition disabled:opacity-60"
+                  >
+                    {savingPrefs ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                    {savingPrefs ? "Saving…" : "Save Region Preferences"}
+                  </button>
+                  {prefsSaved && (
+                    <span className="text-sm text-emerald-600 font-medium flex items-center gap-1">
+                      <Check size={13} /> Saved
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {prefs && (prefs.region_id) && (
+                <div className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 text-xs text-slate-500 flex items-center gap-2">
+                  <MapPin size={12} className="text-brand-500 shrink-0" />
+                  Currently receiving alerts for{" "}
+                  <strong className="text-slate-700">
+                    {REGION_META_LOCAL[prefs.region_id as keyof typeof REGION_META_LOCAL]?.label}
+                    {prefs.city_name ? ` · ${prefs.city_name}` : " (all cities)"}
+                  </strong>
+                </div>
+              )}
             </div>
           </div>
 

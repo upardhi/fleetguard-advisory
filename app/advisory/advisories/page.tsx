@@ -1,7 +1,8 @@
 "use client";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { TopBar } from "@/app/_components/TopBar";
 import AdvisoryCard from "@/app/_components/AdvisoryCard";
+import RegionFilterBar, { type RegionId } from "@/app/_components/RegionFilterBar";
 import { BrainCircuit, Zap, Clock, CheckCircle, Loader2, Route, ArrowRight } from "lucide-react";
 import type { Advisory } from "@/app/_lib/types";
 import Link from "next/link";
@@ -27,13 +28,19 @@ export default function AdvisoriesPage() {
   const [advisories, setAdvisories]     = useState<(Advisory & { corridorName?: string })[]>([]);
   const [corridors, setCorridors]       = useState<Corridor[]>([]);
   const [loading, setLoading]           = useState(true);
+  const [region, setRegion]             = useState<RegionId>("all");
   const [typeFilter, setTypeFilter]     = useState("all");
   const [urgentOnly, setUrgentOnly]     = useState(false);
   const [corridorFilter, setCorridorFilter] = useState("all");
 
-  useEffect(() => {
-    fetch("/api/advisory/v1/intelligence", { credentials: "include" })
-      .then((r) => r.json())
+  const load = useCallback((r: RegionId) => {
+    setLoading(true);
+    setCorridorFilter("all");
+    const url = r === "all"
+      ? "/api/advisory/v1/intelligence"
+      : `/api/advisory/v1/intelligence?regionId=${r}`;
+    fetch(url, { credentials: "include" })
+      .then((res) => res.json())
       .then((d: IntelData) => {
         setAdvisories(d.advisories ?? []);
         setCorridors(d.corridors ?? []);
@@ -41,6 +48,13 @@ export default function AdvisoriesPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { load("all"); }, [load]);
+
+  function handleRegionChange(r: RegionId) {
+    setRegion(r);
+    load(r);
+  }
 
   const filtered = useMemo(() => {
     return advisories.filter((a) => {
@@ -75,6 +89,9 @@ export default function AdvisoriesPage() {
 
       <div className="flex-1 overflow-auto">
         <div className="p-6 max-w-screen-xl mx-auto space-y-5">
+
+          {/* Region filter */}
+          <RegionFilterBar value={region} onChange={handleRegionChange} />
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4">

@@ -20,9 +20,13 @@ export async function GET(req: NextRequest) {
         u.created_at,
         w.name  AS warehouse_name,
         w.code  AS warehouse_code,
-        w.city  AS warehouse_city
+        w.city  AS warehouse_city,
+        p.region_id   AS advisory_region,
+        c.name        AS advisory_city
       FROM users u
-      LEFT JOIN warehouses w ON w.id = u.warehouse_id
+      LEFT JOIN warehouses    w ON w.id = u.warehouse_id
+      LEFT JOIN adv_user_prefs p ON p.user_id = u.id
+      LEFT JOIN adv_cities     c ON c.id = p.city_id
       WHERE u.org_id = ${claims.org}
       ORDER BY u.role, u.full_name
     `;

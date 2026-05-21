@@ -1,8 +1,9 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { TopBar } from "@/app/_components/TopBar";
 import RiskBadge from "@/app/_components/RiskBadge";
 import CategoryBadge from "@/app/_components/Badge";
+import RegionFilterBar, { type RegionId } from "@/app/_components/RegionFilterBar";
 import { categoryIcon, categoryLabel, timeAgo } from "@/app/_lib/utils";
 import type { CorridorEvent, DisruptionCategory, RiskLevel } from "@/app/_lib/types";
 import {
@@ -180,16 +181,27 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
 export default function FleetEventsPage() {
   const [events, setEvents]   = useState<CorridorEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [region, setRegion]   = useState<RegionId>("all");
   const [tab, setTab]         = useState<TabKey>("scheduled");
   const [riskFilter, setRiskFilter] = useState<RiskLevel | "all">("all");
 
-  useEffect(() => {
-    fetch("/api/advisory/v1/corridor-events?eventType=all&limit=200", { credentials: "include" })
-      .then((r) => r.json())
+  const load = useCallback((r: RegionId) => {
+    setLoading(true);
+    const base = "/api/advisory/v1/corridor-events?eventType=all&limit=200";
+    const url  = r === "all" ? base : `${base}&regionId=${r}`;
+    fetch(url, { credentials: "include" })
+      .then((res) => res.json())
       .then((d: { events: CorridorEvent[] }) => setEvents(d.events ?? []))
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { load("all"); }, [load]);
+
+  function handleRegionChange(r: RegionId) {
+    setRegion(r);
+    load(r);
+  }
 
   const byTab = useMemo(() => {
     return events.filter((e) => e.event_type === tab && (riskFilter === "all" || e.risk_level === riskFilter));
@@ -230,6 +242,9 @@ export default function FleetEventsPage() {
         )}
 
         <div className="p-5 max-w-4xl mx-auto space-y-4">
+          {/* Region filter */}
+          <RegionFilterBar value={region} onChange={handleRegionChange} />
+
           {/* Tabs */}
           <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
             {TABS.map(({ key, label, icon }) => (
