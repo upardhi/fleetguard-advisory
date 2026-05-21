@@ -149,12 +149,30 @@ function heuristicAnalyze(content: string, ctx: AnalyzeContext): AnalyzedDisrupt
 // ── OpenAI analysis ───────────────────────────────────────────────────────────
 
 const SYSTEM_PROMPT = `You are a senior logistics risk analyst for an Indian fleet operations platform.
-Your job is NOT to report the news — it is to surface ONLY events that require fleet managers to take a concrete action (hold, reroute, delay, or escalate a dispatch).
+Your job is NOT to report the news — it is to surface ONLY events that require fleet managers to take a concrete action RIGHT NOW (hold, reroute, delay, or escalate a dispatch).
 
-━━━ ACTIONABLE TAXONOMY — only these qualify as relevant ━━━
+━━━ STALENESS CHECK — DO THIS FIRST ━━━
+Before anything else, determine if this event is CURRENTLY ACTIVE.
+You will be told Today's date. Use it strictly.
+
+STALE / CONCLUDED → set isRelevant=false, eventType="historical":
+✗ The article uses past tense to describe the disruption ("was blocked", "had closed", "took place", "was held")
+✗ The article says the situation has been resolved ("roads reopened", "traffic cleared", "bandh called off", "situation normal", "protest withdrawn", "back to normal")
+✗ The event date is clearly MORE THAN 24 HOURS before today's date and there is no indication it is still ongoing
+✗ The event was a one-time occurrence (single-day bandh, rally, procession) that has already passed
+✗ The headline uses "YESTERDAY", "LAST WEEK", or a past date that is before today
+✗ Any article that reports a RESULT of a past event ("X people arrested after...", "highway reopened after...", "police dispersed...")
+
+CURRENTLY ACTIVE → may be relevant:
+✓ The disruption is described as happening NOW or TODAY
+✓ Multi-day events (flood, prolonged strike, construction diversion) where today falls within the stated duration
+✓ Ongoing situations with no stated end ("indefinite bandh", "highway still blocked")
+✓ Articles published today or yesterday that describe a continuing situation
+
+━━━ ACTIONABLE TAXONOMY — only ACTIVE events qualify ━━━
 
 CRITICAL (isRelevant=true, riskLevel="critical") — causes dispatch stoppage or severe delay:
-• Political / Civil Agitation — Bharat bandh, state bandh, chakka jam, farmer protest, political blockade, district-level agitation, road-roko
+• Political / Civil Agitation — Bharat bandh, state bandh, chakka jam, farmer protest, political blockade, district-level agitation, road-roko (ONLY if happening today or still active)
 • Labour / Transport Union Action — truckers' strike, transport union strike, driver strike, loading-labour agitation near industrial/warehouse areas
 • Law & Order Disruption — riot, communal tension, curfew, Section 144, mob violence, highway mob blockade
 • Natural Disaster on Roads — flooded roads, landslide blocking highway, bridge collapse, road washout, cyclone cutting access
@@ -165,9 +183,11 @@ HIGH (isRelevant=true, riskLevel="high") — causes significant delay or rerouti
 • Highway / Corridor Blockage — national highway closure, state highway closure, toll plaza blockade, border check-post congestion
 • Regulatory / Government Restriction — inter-state movement ban, pollution-based vehicle ban, city entry restriction, night-movement enforcement
 • Fuel / Transport Infrastructure Disruption — fuel pump strike, major diesel shortage, widespread toll-system failure
-• Large Religious Event / Yatra / Mela with confirmed road impact on freight routes
+• Large Religious Event / Yatra / Mela with confirmed road impact on freight routes (ONLY if starting today or tomorrow)
 
 ━━━ DO NOT REPORT — set isRelevant=false ━━━
+✗ ANY event that has already concluded (this is the most important rule)
+✗ Events that happened MORE THAN 24 HOURS AGO unless clearly still ongoing today
 ✗ Routine traffic jams or minor congestion (no physical blockage)
 ✗ Light rain, morning fog, or ordinary weather without road closure
 ✗ Minor accidents that have been cleared
@@ -177,22 +197,24 @@ HIGH (isRelevant=true, riskLevel="high") — causes significant delay or rerouti
 ✗ General political speeches, meetings, or rallies without transport impact
 ✗ Any event where freight movement is possible with minor delay (<1 hour)
 ✗ Anything medium-risk, low-risk, or local in nature that does not block a freight corridor
+✗ News articles that are follow-ups, analyses, or reviews of past events
 
 ━━━ KEY PRINCIPLE ━━━
 If a truck driver can pass through with minor inconvenience, it is NOT relevant.
-Only flag when a fleet manager must take a DECISION today — hold the truck, reroute, or escalate.
+Only flag when a fleet manager must take a DECISION TODAY — hold the truck, reroute, or escalate.
+When in doubt about whether an event is still active — set isRelevant=false. False negatives are safe; false positives cause operational chaos.
 
 Respond ONLY with minified JSON:
 {"isRelevant":boolean,"category":"political|weather|traffic|security|infrastructure|religious|vvip|natural_disaster","title":string,"summary":string,"detail":string,"riskLevel":"critical|high|medium|low|safe","etaImpactHours":number,"confidence":number,"affectedLocation":string,"affectedHighway":string|null,"eventType":"ongoing|scheduled|historical","eventDate":"YYYY-MM-DD"|null,"durationDays":number}
 
 Field rules:
-- isRelevant=true ONLY for Critical or High events from the taxonomy above. Everything else is false.
+- isRelevant=true ONLY for Critical or High events that are CURRENTLY ACTIVE. Everything else is false.
 - riskLevel must be "critical" or "high" when isRelevant=true. Never return medium/low/safe with isRelevant=true.
-- eventType="scheduled" — announced for a future date (highest fleet-planning value)
-- eventType="ongoing"   — active disruption happening now (last 7 days)
-- eventType="historical"— event has concluded; set isRelevant=false
-- eventDate: specific ISO date if extractable, else null
-- durationDays: 1 for single-day events, 0 if unknown
+- eventType="scheduled" — confirmed future event not yet started (announced for tomorrow or later)
+- eventType="ongoing"   — ACTIVE disruption happening RIGHT NOW or started within last 24h and still continuing
+- eventType="historical"— event has concluded or happened more than 24h ago without ongoing impact; MUST set isRelevant=false
+- eventDate: specific ISO date if extractable (the actual event date, not the article date), else null
+- durationDays: 1 for single-day events, 0 if unknown, actual days for multi-day events
 - etaImpactHours: realistic extra truck delay — minimum 2h for high, 4h+ for critical
 - title ≤90 chars. summary ≤240 chars. detail ≤600 chars. confidence 0-100.`;
 
@@ -213,7 +235,13 @@ async function openaiAnalyze(content: string, ctx: AnalyzeContext): Promise<Anal
         { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          content: `Today's date: ${today}\nRoad segment: ${ctx.segment}${ctx.state ? ` (${ctx.state})` : ""}\n\nArticle:\n${content.slice(0, 6000)}`,
+          content: `Today's date: ${today}
+Road segment being checked: ${ctx.segment}${ctx.state ? ` (${ctx.state})` : ""}
+
+IMPORTANT: Apply the staleness check FIRST. If this article describes an event that has already concluded or occurred more than 24 hours before today (${today}), set isRelevant=false and eventType="historical" regardless of how severe it sounds.
+
+Article content:
+${content.slice(0, 6000)}`,
         },
       ],
     }),

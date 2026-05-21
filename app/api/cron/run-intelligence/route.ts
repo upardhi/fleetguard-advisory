@@ -87,13 +87,16 @@ export async function POST(req: NextRequest) {
   }
 
   let batchDisruptions = 0;
+  // URL-level dedup within this batch: don't scrape/analyze the same URL
+  // for multiple segments in the same batch invocation.
+  const processedUrls = new Set<string>();
 
   for (const seg of segments) {
     const ctx = { segment: seg.name, state: seg.state ?? undefined, todayIso: today };
     const sources: EventSource[] = [];
     const now = new Date().toISOString();
 
-    // ── Search 1: Current disruptions (last 7 days) ─────────────────────────
+    // ── Search 1: Current disruptions (past 24 hours only) ─────────────────
     let bestRisk: string | null = null;
     let bestTitle: string | null = null;
     let bestSummary: string | null = null;
@@ -104,6 +107,10 @@ export async function POST(req: NextRequest) {
       const hits = await firecrawlSearch(currentSearchQuery({ name: seg.name, state: seg.state ?? undefined }), 3);
 
       for (const hit of hits) {
+        // Skip URLs we already processed for another segment in this batch
+        if (processedUrls.has(hit.url)) continue;
+        processedUrls.add(hit.url);
+
         let scraped = { markdown: hit.description, title: hit.title };
         try { scraped = await firecrawlScrape(hit.url); } catch { /* use snippet */ }
 
@@ -114,7 +121,10 @@ export async function POST(req: NextRequest) {
         }
 
         const result = await analyzeNews(content, ctx);
-        const isCurrentDisruption = result.isRelevant && result.eventType !== "scheduled";
+        // Only accept ACTIVE (ongoing) events — not historical and not future scheduled
+        const isCurrentDisruption = result.isRelevant
+          && result.eventType === "ongoing"
+          && result.riskLevel !== "safe";
 
         sources.push({
           url: hit.url,
@@ -124,7 +134,7 @@ export async function POST(req: NextRequest) {
           scrapedAt: now,
         });
 
-        // Hard filter: only Critical and High events are actionable — discard medium/low/safe
+        // Hard filter: only Critical and High events are actionable
         const isActionable = isCurrentDisruption &&
           (result.riskLevel === "critical" || result.riskLevel === "high");
 

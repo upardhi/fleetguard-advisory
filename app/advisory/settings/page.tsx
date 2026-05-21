@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   Bell, Shield, Globe, Users, LogOut, User,
   KeyRound, Moon, ExternalLink, ArrowLeft,
+  RefreshCw, Trash2, CheckCircle2, AlertTriangle, Loader2,
 } from "lucide-react";
 import { TopBar } from "@/app/_components/TopBar";
 import { useAdvisory } from "@/app/_contexts/AdvisoryContext";
@@ -34,6 +35,34 @@ export default function SettingsPage() {
   const [eastIndia,  setEastIndia]  = useState(true);
 
   const [loggingOut, setLoggingOut] = useState(false);
+
+  // ── Intelligence reset ───────────────────────────────────────────────────
+  type ResetState = "idle" | "confirming" | "running" | "done" | "error";
+  const [resetState, setResetState]     = useState<ResetState>("idle");
+  const [resetMessage, setResetMessage] = useState("");
+
+  async function handleReset() {
+    if (resetState === "idle") { setResetState("confirming"); return; }
+    if (resetState === "confirming") {
+      setResetState("running");
+      setResetMessage("");
+      try {
+        const res  = await fetch("/api/advisory/v1/admin/reset-intelligence", {
+          method: "POST", credentials: "include",
+        });
+        const data = await res.json() as { ok?: boolean; message?: string; error?: string };
+        if (!res.ok || !data.ok) throw new Error(data.error ?? "Reset failed");
+        setResetMessage(data.message ?? "Done.");
+        setResetState("done");
+        // Auto-reset the button after 8 seconds
+        setTimeout(() => { setResetState("idle"); setResetMessage(""); }, 8000);
+      } catch (err) {
+        setResetMessage(err instanceof Error ? err.message : "Unknown error");
+        setResetState("error");
+        setTimeout(() => { setResetState("idle"); setResetMessage(""); }, 6000);
+      }
+    }
+  }
 
   async function handleLogout() {
     setLoggingOut(true);

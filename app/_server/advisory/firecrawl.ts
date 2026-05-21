@@ -24,7 +24,10 @@ interface FcSearchResponse {
   error?: string;
 }
 
-/** Search the web for CURRENT news (past 7 days only). */
+/** Search the web for CURRENT news (past 24 hours only).
+ *  Deliberately narrow — we want events that are STILL HAPPENING, not
+ *  concluded disruptions from 3–7 days ago. Ongoing multi-day events
+ *  (floods, strikes) will still appear in today's news feeds. */
 export async function firecrawlSearch(query: string, limit = 5): Promise<SearchHit[]> {
   const res = await fetch(`${API_BASE}/search`, {
     method: "POST",
@@ -32,7 +35,7 @@ export async function firecrawlSearch(query: string, limit = 5): Promise<SearchH
       "Content-Type": "application/json",
       Authorization: `Bearer ${firecrawlKey()}`,
     },
-    body: JSON.stringify({ query, limit, tbs: "qdr:w" }), // qdr:w = past week only
+    body: JSON.stringify({ query, limit, tbs: "qdr:d" }), // qdr:d = past 24 hours only
   });
 
   if (!res.ok) {

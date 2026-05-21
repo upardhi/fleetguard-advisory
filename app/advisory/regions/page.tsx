@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { TopBar } from "@/app/_components/TopBar";
 import RiskBadge from "@/app/_components/RiskBadge";
@@ -7,8 +8,19 @@ import { LiveIndicator } from "@/app/_components/LiveIndicator";
 import type { RiskLevel } from "@/app/_lib/types";
 import {
   AlertTriangle, ShieldCheck, Zap, Building2, Route,
-  Users, ArrowRight, Loader2, Clock, RefreshCw,
+  Users, ArrowRight, Loader2, Clock, RefreshCw, Map as MapPinIcon,
 } from "lucide-react";
+import type { CityEntry, RegionMapData } from "@/app/_components/IndiaRegionsMap";
+
+// Leaflet requires the browser — disable SSR
+const IndiaRegionsMap = dynamic(
+  () => import("@/app/_components/IndiaRegionsMap"),
+  { ssr: false, loading: () => (
+    <div className="flex items-center justify-center h-full text-slate-300">
+      <Loader2 size={24} className="animate-spin" />
+    </div>
+  )},
+);
 
 interface RegionIssue {
   title:     string;
@@ -28,6 +40,7 @@ interface RegionStat {
   topIssues:   RegionIssue[];
   corridors:   number;
   cities:      number;
+  cityList:    CityEntry[];
   teamMembers: number;
   lastIntelAt: string | null;
 }
@@ -119,6 +132,43 @@ export default function RegionsPage() {
                 <RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />
                 Refresh
               </button>
+            </div>
+          </div>
+
+          {/* India Map */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MapPinIcon size={15} className="text-brand-600" />
+                <h2 className="text-sm font-semibold text-slate-800">Region & City Map</h2>
+                <span className="text-xs text-slate-400">— Click any region bubble for details</span>
+              </div>
+              {!loading && (
+                <span className="text-[11px] text-slate-400">
+                  {regions.reduce((a, r) => a + r.cities, 0)} depot cities mapped
+                </span>
+              )}
+            </div>
+            <div style={{ height: 460 }}>
+              {loading ? (
+                <div className="flex items-center justify-center h-full text-slate-300">
+                  <Loader2 size={24} className="animate-spin" />
+                </div>
+              ) : (
+                <IndiaRegionsMap
+                  regions={regions.map((r): RegionMapData => ({
+                    id:          r.id,
+                    label:       r.label,
+                    worstRisk:   r.worstRisk,
+                    disruptions: r.disruptions,
+                    critical:    r.critical,
+                    high:        r.high,
+                    corridors:   r.corridors,
+                    cities:      r.cities,
+                    cityList:    r.cityList ?? [],
+                  }))}
+                />
+              )}
             </div>
           </div>
 

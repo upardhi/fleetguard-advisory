@@ -59,7 +59,9 @@ export async function GET(
     last_intel_at: string | null; routes_fetched: boolean; region_id: string | null;
   }[];
 
-  // Load ALL disrupted segments for this region's states
+  // Load ALL disrupted segments for this region's states.
+  // Only include segments checked within the last 36 hours — older flags are
+  // considered stale (the event has likely ended) and should not be shown.
   const segments = await db`
     SELECT
       s.id, s.name AS segment_name, s.state, s.disruption_risk_level,
@@ -72,6 +74,7 @@ export async function GET(
       AND  r.is_active = true
       AND  s.has_disruption = true
       AND  s.disruption_risk_level IN ('critical', 'high')
+      AND  s.last_checked_at >= now() - interval '36 hours'
       AND  s.state = ANY(${db.array(region.states)})
     ORDER BY
       CASE s.disruption_risk_level WHEN 'critical' THEN 1 WHEN 'high' THEN 2 ELSE 3 END,

@@ -220,12 +220,27 @@ export async function GET(req: NextRequest) {
     return { corridorId: c.id, corridorName: c.name, origin: c.origin, destination: c.destination, points };
   }).filter((cr) => cr.points.length > 0);
 
-  // Deduplicate: one disruption per unique (corridor + title) pair.
-  // Multiple adjacent segments often describe the same real-world event.
-  // Keep the highest-risk representative segment for each unique event.
+  // ── Staleness filter ──────────────────────────────────────────────────────
+  // Drop any disruption whose last_checked_at is older than 36 hours.
+  // This handles the case where a segment was flagged in a past scan but
+  // the next scan hasn't cleared it yet (e.g. cron ran yesterday, hasn't
+  // run again today). Better to show nothing than stale false alarms.
+  const thirtySevenHoursAgo = new Date(Date.now() - 37 * 3600 * 1000).toISOString();
+  const freshRows = disruptedRows.filter((seg) => {
+    if (!seg.last_checked_at) return false;
+    return seg.last_checked_at >= thirtySevenHoursAgo;
+  });
+
+  // ── Deduplication ─────────────────────────────────────────────────────────
+  // Key = state + normalized title (first 80 chars).
+  // This deduplicates the SAME real-world event that shows up across multiple
+  // corridors (e.g. "NH48 blocked" affecting both Mumbai→Pune and Mumbai→Nashik).
+  // Within the same state+title bucket, keep the highest-risk corridor version.
   const seenDisruptionKeys = new Set<string>();
-  const dedupedRows = disruptedRows.filter((seg) => {
-    const key = `${seg.corridor_id}::${(seg.disruption_title ?? seg.name).trim().toLowerCase()}`;
+  const dedupedRows = freshRows.filter((seg) => {
+    const titleNorm = (seg.disruption_title ?? seg.name).trim().toLowerCase().slice(0, 80);
+    const stateNorm = (seg.state ?? "").toLowerCase();
+    const key = `${stateNorm}::${titleNorm}`;
     if (seenDisruptionKeys.has(key)) return false;
     seenDisruptionKeys.add(key);
     return true;

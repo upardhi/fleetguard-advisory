@@ -19,7 +19,9 @@ export async function GET(req: NextRequest) {
     id: string; label: string; color: string; states: string[];
   }[];
 
-  // Load all active disrupted segments for the org
+  // Load all active disrupted segments for the org.
+  // 36-hour staleness filter: segments not re-checked recently are excluded —
+  // their disruption flag is considered expired.
   const segments = await db`
     SELECT s.state, s.disruption_risk_level, s.disruption_title, s.disruption_category,
            r.id AS route_id, r.name AS route_name
@@ -29,6 +31,7 @@ export async function GET(req: NextRequest) {
       AND  r.is_active = true
       AND  s.has_disruption = true
       AND  s.disruption_risk_level IN ('critical', 'high')
+      AND  s.last_checked_at >= now() - interval '36 hours'
   ` as { state: string | null; disruption_risk_level: string; disruption_title: string | null; disruption_category: string | null; route_id: string; route_name: string }[];
 
   // Load corridor counts per region
@@ -40,14 +43,22 @@ export async function GET(req: NextRequest) {
   ` as { region_id: string; count: number }[];
   const corridorsByRegion = new Map(corridors.map((c) => [c.region_id, c.count]));
 
-  // Load city counts per region
-  const cities = await db`
-    SELECT region_id, COUNT(*)::int AS count
+  // Load all cities for this org — build both a count map and a list map
+  const allCities = await db`
+    SELECT id, region_id, name, state, is_depot
     FROM   adv_cities
     WHERE  org_id = ${actor.org}
-    GROUP  BY region_id
-  ` as { region_id: string; count: number }[];
-  const citiesByRegion = new Map(cities.map((c) => [c.region_id, c.count]));
+    ORDER  BY name
+  ` as { id: string; region_id: string; name: string; state: string | null; is_depot: boolean }[];
+
+  const citiesByRegion     = new Map<string, number>();
+  const citiesByRegionList = new Map<string, typeof allCities>();
+  for (const city of allCities) {
+    citiesByRegion.set(city.region_id, (citiesByRegion.get(city.region_id) ?? 0) + 1);
+    const list = citiesByRegionList.get(city.region_id) ?? [];
+    list.push(city);
+    citiesByRegionList.set(city.region_id, list);
+  }
 
   // Load user counts per region
   const users = await db`
@@ -118,6 +129,7 @@ export async function GET(req: NextRequest) {
       topIssues,
       corridors:       corridorsByRegion.get(region.id) ?? 0,
       cities:          citiesByRegion.get(region.id) ?? 0,
+      cityList:        citiesByRegionList.get(region.id) ?? [],
       teamMembers:     usersByRegion.get(region.id) ?? 0,
       lastIntelAt:     lastIntelByRegion.get(region.id) ?? null,
     };

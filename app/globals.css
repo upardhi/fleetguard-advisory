@@ -183,3 +183,28 @@ body {
   -moz-appearance: none !important;
   background-image: none !important;
 }
+
+/* ── Leaflet region zone label ──────────────────────────────── */
+.region-zone-label {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  font-family: inherit !important;
+  pointer-events: none !important;
+}
+.region-zone-label::before {
+  display: none !important;
+}
+
+/* Leaflet popup tweak — use our font */
+.leaflet-popup-content-wrapper {
+  border-radius: 12px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
+  font-family: inherit !important;
+}
+.leaflet-popup-content {
+  margin: 12px 14px !important;
+  font-family: inherit !important;
+  font-size: 12px !important;
+}
