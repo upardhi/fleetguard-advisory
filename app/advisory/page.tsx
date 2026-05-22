@@ -521,7 +521,7 @@ function RegionCard({
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left rounded-xl border transition-all overflow-hidden ${
+      className={`w-full text-left rounded-xl border transition-all overflow-hidden flex flex-col ${
         selected
           ? `${meta.border} shadow ring-2 ring-offset-1 ${meta.border.replace("border-", "ring-")}`
           : "border-slate-200 bg-white hover:shadow-sm hover:border-slate-300"
