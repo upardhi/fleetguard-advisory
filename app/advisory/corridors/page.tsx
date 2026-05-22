@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { TopBar } from "@/app/_components/TopBar";
 import type { RiskLevel } from "@/app/_lib/types";
+import { Plus } from "lucide-react";
 
 const RISK_CONFIG: Record<string, { label: string; cls: string; dot: string }> = {
   critical: { label: "Critical", cls: "bg-red-50 text-red-700 border border-red-200",         dot: "bg-red-500"    },
@@ -55,6 +56,12 @@ export default function CorridorsPage() {
   const [riskFilter, setRiskFilter] = useState<string>("all");
   const [assigningRegion, setAssigningRegion] = useState<{ corridorId: string; name: string } | null>(null);
   const [assigningTo, setAssigningTo] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [origin, setOrigin] = useState("");
+  const [destination, setDestination] = useState("");
+  const [label, setLabel] = useState("");
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+  const [addingCorridor, setAddingCorridor] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -93,6 +100,35 @@ export default function CorridorsPage() {
         await load();
       }
     } catch { /* error */ }
+  }
+
+  async function handleAddCorridor(e: React.FormEvent) {
+    e.preventDefault();
+    if (!origin.trim() || !destination.trim()) return;
+
+    setAddingCorridor(true);
+    try {
+      const res = await fetch("/api/advisory/v1/watched-routes", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: label || `${origin} - ${destination}`,
+          origin: origin.trim(),
+          destination: destination.trim(),
+          region_id: selectedRegion || null,
+        }),
+      });
+      if (res.ok) {
+        setOrigin("");
+        setDestination("");
+        setLabel("");
+        setSelectedRegion(null);
+        setShowAddModal(false);
+        await load();
+      }
+    } catch { /* error */ }
+    finally { setAddingCorridor(false); }
   }
 
   const filtered = useMemo(() => {
@@ -139,6 +175,12 @@ export default function CorridorsPage() {
               >
                 <RefreshCw size={13} className={scanning ? "animate-spin" : ""} />
                 {scanning ? "Scanning…" : "Scan Now"}
+              </button>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white px-3 py-2 rounded-lg hover:bg-slate-50 transition"
+              >
+                <Plus size={13} />Add Corridor
               </button>
               <Link
                 href="/advisory/settings"
@@ -293,6 +335,91 @@ export default function CorridorsPage() {
                   <p className="text-sm text-slate-400">No corridors match this filter</p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Add Corridor Modal */}
+          {showAddModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-slate-900">Add Corridor</h3>
+                  <button
+                    onClick={() => setShowAddModal(false)}
+                    className="text-slate-400 hover:text-slate-600 text-lg"
+                  >
+                    ×
+                  </button>
+                </div>
+                <p className="text-sm text-slate-600">
+                  Enter any route your trucks use. We will map every district and monitor for disruptions automatically.
+                </p>
+                <form onSubmit={(e) => void handleAddCorridor(e)} className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-1">Origin</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Mumbai"
+                      value={origin}
+                      onChange={(e) => setOrigin(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-600"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-1">Destination</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Nagpur"
+                      value={destination}
+                      onChange={(e) => setDestination(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-600"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-1">Label (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Daily Mumbai-Nagpur run"
+                      value={label}
+                      onChange={(e) => setLabel(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-1">Region (Optional)</label>
+                    <select
+                      value={selectedRegion || ""}
+                      onChange={(e) => setSelectedRegion(e.target.value || null)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-600"
+                    >
+                      <option value="">No Region</option>
+                      {REGIONS.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="submit"
+                      disabled={addingCorridor || !origin.trim() || !destination.trim()}
+                      className="flex-1 px-4 py-2 rounded-lg bg-brand-700 text-white font-medium hover:bg-brand-800 transition disabled:opacity-60"
+                    >
+                      {addingCorridor ? "Adding…" : "Add Corridor"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddModal(false)}
+                      className="flex-1 px-4 py-2 rounded-lg border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           )}
 
