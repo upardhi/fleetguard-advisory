@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/app/_server/auth/getUser";
 import { db } from "@/app/_server/db/client";
-import { firecrawlSearch, firecrawlSearchFuture, firecrawlScrape } from "@/app/_server/advisory/firecrawl";
+import { firecrawlScrape } from "@/app/_server/advisory/firecrawl";
 import { analyzeNews } from "@/app/_server/advisory/analyze";
 import { currentSearchQuery, futureSearchQuery } from "@/app/_server/advisory/decompose";
+import { searchCurrentNews, searchFutureNews } from "@/app/_server/advisory/news-search.service";
 
 export const maxDuration = 300;
 
@@ -112,7 +113,8 @@ export async function POST(req: NextRequest) {
 
     try {
       // Fetch 5 results (up from 3) — gives more coverage for busy corridors
-      const hits = await firecrawlSearch(currentSearchQuery({ name: seg.name, state: seg.state ?? undefined }), 5);
+      const hits = await searchCurrentNews(currentSearchQuery({ name: seg.name, state: seg.state ?? undefined }), 5);
+      debugger;
 
       for (const hit of hits) {
         // Use cached scrape if available, otherwise fetch and cache
@@ -150,10 +152,10 @@ export async function POST(req: NextRequest) {
           (result.riskLevel === "critical" || result.riskLevel === "high");
 
         if (isActionable && (RISK_ORDER[result.riskLevel] ?? 0) > (RISK_ORDER[bestRisk ?? "safe"] ?? 0)) {
-          bestRisk     = result.riskLevel;
-          bestTitle    = result.title;
-          bestSummary  = result.summary;
-          bestEta      = result.etaImpactHours;
+          bestRisk = result.riskLevel;
+          bestTitle = result.title;
+          bestSummary = result.summary;
+          bestEta = result.etaImpactHours;
           bestCategory = result.category;
         }
       }
@@ -185,14 +187,14 @@ export async function POST(req: NextRequest) {
       // ── Notify users whose region/city matches this segment's state ──────
       try {
         await createNotificationsForDisruption({
-          orgId:     job.org_id,
-          routeId:   job.route_id,
+          orgId: job.org_id,
+          routeId: job.route_id,
           segmentId: seg.id,
-          state:     seg.state,
-          title:     bestTitle ?? `Disruption on ${seg.name}`,
-          summary:   bestSummary,
+          state: seg.state,
+          title: bestTitle ?? `Disruption on ${seg.name}`,
+          summary: bestSummary,
           riskLevel: bestRisk,
-          category:  bestCategory,
+          category: bestCategory,
         });
       } catch (err) {
         console.error(`[cron] notification creation failed for ${seg.name}:`, err);
@@ -215,8 +217,8 @@ export async function POST(req: NextRequest) {
 
     // ── Search 2: Future scheduled events (next 30 days) ────────────────────
     try {
-      const futureHits = await firecrawlSearchFuture(futureSearchQuery({ name: seg.name, state: seg.state ?? undefined }), 3);
-
+      const futureHits = await searchFutureNews(futureSearchQuery({ name: seg.name, state: seg.state ?? undefined }), 3);
+      debugger;
       for (const hit of futureHits) {
         let scraped = { markdown: hit.description, title: hit.title };
         try { scraped = await firecrawlScrape(hit.url); } catch { /* use snippet */ }
@@ -228,7 +230,7 @@ export async function POST(req: NextRequest) {
 
         // Only store scheduled events that are Critical or High — filter out noise
         if (result.isRelevant && result.eventType === "scheduled" &&
-            (result.riskLevel === "critical" || result.riskLevel === "high")) {
+          (result.riskLevel === "critical" || result.riskLevel === "high")) {
           const eventSrc: EventSource[] = [{
             url: hit.url,
             title: scraped.title || hit.title,
@@ -266,9 +268,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const newDone        = job.segments_done + segments.length;
+  const newDone = job.segments_done + segments.length;
   const newDisruptions = job.disruptions_found + batchDisruptions;
-  const isComplete     = newDone >= job.segments_total;
+  const isComplete = newDone >= job.segments_total;
 
   if (isComplete) {
     await db`
