@@ -129,7 +129,9 @@
       "Bash(curl -s http://localhost:3000/api/auth/v2/me)",
       "PowerShell($env:SUPABASE_POOLER_URL = \"postgresql://postgres.iexnandsthtdotgqlahf:znh7zLSt.2axXHd@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require\"; cd \"C:\\\\Programming\\\\itc\\\\fleetguard-advisory\"; npx tsx scripts/migrate-advisory-regions.ts 2>&1)",
       "PowerShell(cd \"C:\\\\Programming\\\\itc\\\\fleetguard-advisory\"; $env:SUPABASE_POOLER_URL = \\(Get-Content .env.local | Select-String \"^SUPABASE_POOLER_URL=\"\\).Line.Split\\(\"=\", 2\\)[1]; npx tsx scripts\\\\check-db.ts 2>&1 | Select-Object -First 5)",
-      "Bash(taskkill //F //PID 16724)"
+      "Bash(taskkill //F //PID 16724)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'Production-Ready Fixes: Data consistency, Job monitoring, Risk levels *)"
     ]
   }
 }

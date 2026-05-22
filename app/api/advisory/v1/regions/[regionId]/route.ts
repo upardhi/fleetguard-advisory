@@ -62,6 +62,7 @@ export async function GET(
   // Load ALL disrupted segments for this region's states.
   // 26-hour staleness window — matches the main intelligence API.
   // Segments not re-checked within 26h are treated as stale and hidden.
+  // Include all risk levels (critical, high, medium, low) to match intelligence API counts.
   const segments = await db`
     SELECT
       s.id, s.name AS segment_name, s.state, s.disruption_risk_level,
@@ -74,11 +75,12 @@ export async function GET(
     WHERE  r.org_id   = ${actor.org}
       AND  r.is_active = true
       AND  s.has_disruption = true
-      AND  s.disruption_risk_level IN ('critical', 'high')
+      AND  s.disruption_risk_level IS NOT NULL
+      AND  s.disruption_risk_level != 'safe'
       AND  s.last_checked_at >= now() - interval '26 hours'
       AND  s.state = ANY(${db.array(region.states)})
     ORDER BY
-      CASE s.disruption_risk_level WHEN 'critical' THEN 1 WHEN 'high' THEN 2 ELSE 3 END,
+      CASE s.disruption_risk_level WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END,
       s.disruption_eta_hours DESC NULLS LAST
   ` as {
     id: string; segment_name: string; state: string | null;

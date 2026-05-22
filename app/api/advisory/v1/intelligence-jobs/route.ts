@@ -3,6 +3,57 @@ import { requireUser } from "@/app/_server/auth/getUser";
 import { db } from "@/app/_server/db/client";
 import { applySecurityHeaders } from "@/app/_server/security/headers";
 
+// GET /api/advisory/v1/intelligence-jobs
+// Returns job queue status and history for all corridors in this org.
+export async function GET(req: NextRequest) {
+  let actor;
+  try { actor = await requireUser(req); }
+  catch { return applySecurityHeaders(NextResponse.json({ error: "Unauthorized" }, { status: 401 })); }
+
+  const jobs = await db`
+    SELECT
+      j.id, j.route_id, j.status, j.segments_total, j.segments_processed,
+      j.triggered_by, j.created_at, j.started_at, j.finished_at,
+      r.name AS route_name, r.origin, r.destination
+    FROM   adv_intel_jobs j
+    JOIN   adv_watched_routes r ON r.id = j.route_id
+    WHERE  j.org_id = ${actor.org}
+    ORDER  BY j.created_at DESC
+    LIMIT  100
+  ` as unknown as Array<{
+    id: string;
+    route_id: string;
+    status: string;
+    segments_total: number;
+    segments_processed: number;
+    triggered_by: string;
+    created_at: string;
+    started_at: string | null;
+    finished_at: string | null;
+    route_name: string;
+    origin: string;
+    destination: string;
+  }>;
+
+  // Queue statistics
+  const pendingCount = jobs.filter(j => j.status === "pending").length;
+  const runningCount = jobs.filter(j => j.status === "running").length;
+  const failedCount = jobs.filter(j => j.status === "failed").length;
+  const completedCount = jobs.filter(j => j.status === "completed").length;
+
+  return applySecurityHeaders(
+    NextResponse.json({
+      queue: {
+        pending: pendingCount,
+        running: runningCount,
+        completed: completedCount,
+        failed: failedCount,
+      },
+      jobs,
+    }),
+  );
+}
+
 // POST /api/advisory/v1/intelligence-jobs
 // Creates an async intelligence job for a watched corridor.
 // Returns immediately with a jobId — the Vercel Cron picks it up within 60s.

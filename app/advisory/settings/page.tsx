@@ -47,6 +47,29 @@ export default function SettingsPage() {
   const [processMessage, setProcessMessage] = useState("");
   const [processProgress, setProcessProgress] = useState<{ done: number; total: number } | null>(null);
 
+  // ── Job queue monitoring ─────────────────────────────────────────────────
+  type JobsState = "idle" | "loading" | "ready" | "error";
+  const [jobsState,    setJobsState]    = useState<JobsState>("idle");
+  const [queueStatus,  setQueueStatus]  = useState<{ pending: number; running: number; completed: number; failed: number } | null>(null);
+  const [recentJobs,   setRecentJobs]   = useState<Array<any>>([]);
+  const [jobsError,    setJobsError]    = useState("");
+
+  async function loadJobStatus() {
+    setJobsState("loading");
+    setJobsError("");
+    try {
+      const res = await fetch("/api/advisory/v1/intelligence-jobs", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load jobs");
+      const data = await res.json() as { queue: any; jobs: any[] };
+      setQueueStatus(data.queue);
+      setRecentJobs(data.jobs.slice(0, 10));
+      setJobsState("ready");
+    } catch (err) {
+      setJobsError(err instanceof Error ? err.message : "Error loading jobs");
+      setJobsState("error");
+    }
+  }
+
   async function handleReset() {
     if (resetState === "idle") { setResetState("confirming"); return; }
     if (resetState === "confirming") {
@@ -432,6 +455,75 @@ export default function SettingsPage() {
                   )}
                 </button>
               </div>
+            </Section>
+          )}
+
+          {/* Intelligence Job Queue Monitor — admin only */}
+          {isAdmin && (
+            <Section icon={RefreshCw} title="Intelligence Job Queue" desc="Monitor background processing status and history">
+              {jobsState === "ready" && queueStatus && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+                      <div className="text-xs text-blue-600 font-semibold">PENDING</div>
+                      <div className="text-2xl font-bold text-blue-700 mt-1">{queueStatus.pending}</div>
+                    </div>
+                    <div className="rounded-lg bg-orange-50 border border-orange-200 p-3">
+                      <div className="text-xs text-orange-600 font-semibold">RUNNING</div>
+                      <div className="text-2xl font-bold text-orange-700 mt-1">{queueStatus.running}</div>
+                    </div>
+                    <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
+                      <div className="text-xs text-emerald-600 font-semibold">COMPLETED</div>
+                      <div className="text-2xl font-bold text-emerald-700 mt-1">{queueStatus.completed}</div>
+                    </div>
+                    <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+                      <div className="text-xs text-red-600 font-semibold">FAILED</div>
+                      <div className="text-2xl font-bold text-red-700 mt-1">{queueStatus.failed}</div>
+                    </div>
+                  </div>
+
+                  {recentJobs.length > 0 && (
+                    <div>
+                      <div className="text-sm font-semibold text-slate-800 mb-2">Recent Jobs</div>
+                      <div className="space-y-1.5 max-h-48 overflow-auto">
+                        {recentJobs.map((job) => (
+                          <div key={job.id} className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded border border-slate-200">
+                            <div className="min-w-0">
+                              <div className="text-slate-800 font-medium truncate">{job.route_name}</div>
+                              <div className="text-slate-500">{job.segments_processed || 0}/{job.segments_total} segments</div>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded-full whitespace-nowrap text-[10px] font-semibold ${
+                              job.status === "pending" ? "bg-blue-100 text-blue-700" :
+                              job.status === "running" ? "bg-orange-100 text-orange-700" :
+                              job.status === "completed" ? "bg-emerald-100 text-emerald-700" :
+                              "bg-red-100 text-red-700"
+                            }`}>
+                              {job.status.toUpperCase()}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {jobsState === "error" && (
+                <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  <AlertTriangle size={14} className="shrink-0" />
+                  {jobsError}
+                </div>
+              )}
+              <button
+                onClick={() => void loadJobStatus()}
+                disabled={jobsState === "loading"}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition disabled:opacity-60 bg-slate-100 text-slate-700 hover:bg-slate-200 mt-4"
+              >
+                {jobsState === "loading" ? (
+                  <><Loader2 size={14} className="animate-spin" /> Loading…</>
+                ) : (
+                  <><RefreshCw size={14} /> {jobsState === "ready" ? "Refresh" : "Load"} Job Status</>
+                )}
+              </button>
             </Section>
           )}
 
