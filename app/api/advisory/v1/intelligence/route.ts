@@ -199,7 +199,7 @@ export async function GET(req: NextRequest) {
     regionStates.length > 0
       ? db`
           SELECT id, name, origin, destination, max_risk_level,
-                 disruption_count, last_intel_at, routes_fetched
+                 disruption_count, last_intel_at, routes_fetched, region_id
           FROM   adv_watched_routes
           WHERE  org_id = ${actor.org} AND is_active = true
             AND  (region_id = ${regionId} OR EXISTS (
@@ -212,7 +212,7 @@ export async function GET(req: NextRequest) {
         ` as unknown as CorridorRow[]
       : db`
           SELECT id, name, origin, destination, max_risk_level,
-                 disruption_count, last_intel_at, routes_fetched
+                 disruption_count, last_intel_at, routes_fetched, region_id
           FROM   adv_watched_routes
           WHERE  org_id = ${actor.org} AND is_active = true
           ORDER  BY created_at DESC

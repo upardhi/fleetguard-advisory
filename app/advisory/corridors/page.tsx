@@ -27,6 +27,7 @@ interface Corridor {
   disruption_count: number;
   last_intel_at: string | null;
   routes_fetched: boolean;
+  region_id?: string | null;
 }
 
 function timeAgo(iso: string | null): string {
@@ -40,11 +41,20 @@ function timeAgo(iso: string | null): string {
   return `${Math.round(hrs / 24)}d ago`;
 }
 
+const REGIONS = [
+  { id: "north", label: "North India", color: "bg-blue-100 text-blue-700" },
+  { id: "east", label: "East India", color: "bg-orange-100 text-orange-700" },
+  { id: "west", label: "West India", color: "bg-purple-100 text-purple-700" },
+  { id: "south", label: "South India", color: "bg-emerald-100 text-emerald-700" },
+];
+
 export default function CorridorsPage() {
   const [corridors, setCorridors] = useState<Corridor[]>([]);
   const [loading, setLoading]     = useState(true);
   const [scanning, setScanning]   = useState(false);
   const [riskFilter, setRiskFilter] = useState<string>("all");
+  const [assigningRegion, setAssigningRegion] = useState<{ corridorId: string; name: string } | null>(null);
+  const [assigningTo, setAssigningTo] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -67,6 +77,22 @@ export default function CorridorsPage() {
       await load();
     } catch { /* ignore */ }
     finally { setScanning(false); }
+  }
+
+  async function assignRegion(corridorId: string, regionId: string | null) {
+    try {
+      const res = await fetch(`/api/advisory/v1/watched-routes/${corridorId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ regionId }),
+      });
+      if (res.ok) {
+        setAssigningRegion(null);
+        setAssigningTo(null);
+        await load();
+      }
+    } catch { /* error */ }
   }
 
   const filtered = useMemo(() => {
@@ -231,13 +257,31 @@ export default function CorridorsPage() {
                     </div>
 
                     {/* Card footer */}
-                    <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50 flex items-center justify-end">
-                      <Link
-                        href="/advisory/planner"
-                        className="text-[11px] text-brand-600 font-semibold hover:underline px-2 py-1"
-                      >
-                        Plan dispatch →
-                      </Link>
+                    <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+                      {corridor.region_id && (
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                          REGIONS.find(r => r.id === corridor.region_id)?.color || "bg-slate-100 text-slate-700"
+                        }`}>
+                          {REGIONS.find(r => r.id === corridor.region_id)?.label || "No Region"}
+                        </span>
+                      )}
+                      {!corridor.region_id && (
+                        <span className="text-[10px] text-slate-400 font-medium">No region assigned</span>
+                      )}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setAssigningRegion({ corridorId: corridor.id, name: corridor.name })}
+                          className="text-[11px] text-slate-500 hover:text-slate-700 font-semibold px-2 py-1"
+                        >
+                          Assign Region
+                        </button>
+                        <Link
+                          href="/advisory/planner"
+                          className="text-[11px] text-brand-600 font-semibold hover:underline px-2 py-1"
+                        >
+                          Plan →
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 );
@@ -249,6 +293,51 @@ export default function CorridorsPage() {
                   <p className="text-sm text-slate-400">No corridors match this filter</p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Region Assignment Modal */}
+          {assigningRegion && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4">
+                <h3 className="text-lg font-bold text-slate-900">Assign Region</h3>
+                <p className="text-sm text-slate-600">
+                  Select region for <span className="font-semibold">{assigningRegion.name}</span>
+                </p>
+                <div className="space-y-2">
+                  {REGIONS.map((region) => (
+                    <button
+                      key={region.id}
+                      onClick={() => void assignRegion(assigningRegion.corridorId, region.id)}
+                      disabled={assigningTo === region.id}
+                      className={`w-full text-left px-4 py-3 rounded-lg font-medium transition ${
+                        assigningTo === region.id
+                          ? "bg-slate-100 text-slate-400 cursor-wait"
+                          : `${region.color} hover:opacity-90`
+                      }`}
+                    >
+                      {region.label}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => void assignRegion(assigningRegion.corridorId, null)}
+                    disabled={assigningTo === "none"}
+                    className={`w-full text-left px-4 py-3 rounded-lg font-medium transition ${
+                      assigningTo === "none"
+                        ? "bg-slate-100 text-slate-400 cursor-wait"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
+                  >
+                    None (Implicit Matching Only)
+                  </button>
+                </div>
+                <button
+                  onClick={() => setAssigningRegion(null)}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           )}
         </div>

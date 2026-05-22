@@ -59,3 +59,44 @@ export async function DELETE(
 
   return applySecurityHeaders(NextResponse.json({ ok: true }));
 }
+
+// PATCH /api/advisory/v1/watched-routes/[id]
+// Assign corridor to a region by updating region_id
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  let actor;
+  try { actor = await requireUser(req); }
+  catch { return applySecurityHeaders(NextResponse.json({ error: "Unauthorized" }, { status: 401 })); }
+
+  const { id } = await params;
+  const body = await req.json() as { regionId?: string | null };
+  const { regionId } = body;
+
+  // Verify region exists if assigning
+  if (regionId) {
+    const [region] = await db`
+      SELECT id FROM adv_regions WHERE id = ${regionId}
+    ` as unknown as Array<{ id: string }>;
+    if (!region) {
+      return applySecurityHeaders(NextResponse.json({ error: "Region not found" }, { status: 404 }));
+    }
+  }
+
+  // Update corridor region assignment
+  await db`
+    UPDATE adv_watched_routes
+    SET    region_id = ${regionId || null}, updated_at = now()
+    WHERE  id = ${id} AND org_id = ${actor.org}
+  `;
+
+  // Fetch updated route
+  const [updated] = await db`
+    SELECT id, name, origin, destination, region_id, max_risk_level, disruption_count, last_intel_at
+    FROM   adv_watched_routes
+    WHERE  id = ${id}
+  ` as unknown as Array<Record<string, unknown>>;
+
+  return applySecurityHeaders(NextResponse.json({ ok: true, route: updated }));
+}
