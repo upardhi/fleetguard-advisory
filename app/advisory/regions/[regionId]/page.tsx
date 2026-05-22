@@ -19,9 +19,9 @@ import type { Disruption } from "@/app/_lib/types";
 const PAL: Record<string, {
   bg: string; border: string; text: string; hdr: string; badge: string; ring: string;
 }> = {
-  north: { bg: "bg-blue-50",    border: "border-blue-200",    text: "text-blue-700",    hdr: "bg-blue-600",    badge: "bg-blue-100 text-blue-700",    ring: "ring-blue-300"    },
-  east:  { bg: "bg-orange-50",  border: "border-orange-200",  text: "text-orange-700",  hdr: "bg-orange-500",  badge: "bg-orange-100 text-orange-700",  ring: "ring-orange-300"  },
-  west:  { bg: "bg-purple-50",  border: "border-purple-200",  text: "text-purple-700",  hdr: "bg-purple-600",  badge: "bg-purple-100 text-purple-700",  ring: "ring-purple-300"  },
+  north: { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", hdr: "bg-blue-600", badge: "bg-blue-100 text-blue-700", ring: "ring-blue-300" },
+  east: { bg: "bg-orange-50", border: "border-orange-200", text: "text-orange-700", hdr: "bg-orange-500", badge: "bg-orange-100 text-orange-700", ring: "ring-orange-300" },
+  west: { bg: "bg-purple-50", border: "border-purple-200", text: "text-purple-700", hdr: "bg-purple-600", badge: "bg-purple-100 text-purple-700", ring: "ring-purple-300" },
   south: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", hdr: "bg-emerald-600", badge: "bg-emerald-100 text-emerald-700", ring: "ring-emerald-300" },
 };
 
@@ -34,12 +34,12 @@ const ROLE_LABELS: Record<string, string> = {
   cso: "CSO", company_admin: "Admin", super_admin: "Super Admin",
 };
 const ADVISORY_TYPE: Record<string, { label: string; color: string }> = {
-  hold:           { label: "Hold Vehicle",      color: "bg-red-100 text-red-700"     },
-  reroute:        { label: "Reroute Required",  color: "bg-orange-100 text-orange-700"},
-  delay:          { label: "Delay Recommended", color: "bg-amber-100 text-amber-700"  },
-  dispatch_early: { label: "Dispatch Early",    color: "bg-blue-100 text-blue-700"    },
-  split_shipment: { label: "Split Shipment",    color: "bg-purple-100 text-purple-700"},
-  avoid_night:    { label: "Avoid Night Travel",color: "bg-slate-100 text-slate-600"  },
+  hold: { label: "Hold Vehicle", color: "bg-red-100 text-red-700" },
+  reroute: { label: "Reroute Required", color: "bg-orange-100 text-orange-700" },
+  delay: { label: "Delay Recommended", color: "bg-amber-100 text-amber-700" },
+  dispatch_early: { label: "Dispatch Early", color: "bg-blue-100 text-blue-700" },
+  split_shipment: { label: "Split Shipment", color: "bg-purple-100 text-purple-700" },
+  avoid_night: { label: "Avoid Night Travel", color: "bg-slate-100 text-slate-600" },
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -52,20 +52,20 @@ interface SegmentDisruption {
   firstSeenAt: string | null;
   sources: EventSource[];
 }
-interface StateGroup  { state: string; disruptions: SegmentDisruption[] }
+interface StateGroup { state: string; disruptions: SegmentDisruption[] }
 interface CorridorRow {
   id: string; name: string; origin: string; destination: string;
   max_risk_level: string | null; disruption_count: number;
   last_intel_at: string | null; routes_fetched: boolean; region_id: string | null;
 }
-interface CityRow     { id: string; name: string; state: string | null; is_depot: boolean }
-interface TeamMember  { id: string; full_name: string; email: string; role: string; city_name: string | null }
+interface CityRow { id: string; name: string; state: string | null; is_depot: boolean }
+interface TeamMember { id: string; full_name: string; email: string; role: string; city_name: string | null }
 interface RegionDetail {
-  region:      { id: string; label: string; color: string; states: string[] };
-  stats:       { disruptions: number; critical: number; high: number; statesHit: number; worstRisk: string; corridors: number; cities: number; teamMembers: number; lastIntelAt: string | null };
+  region: { id: string; label: string; color: string; states: string[] };
+  stats: { disruptions: number; critical: number; high: number; statesHit: number; worstRisk: string; corridors: number; cities: number; teamMembers: number; lastIntelAt: string | null };
   stateGroups: StateGroup[];
-  corridors:   CorridorRow[];
-  cities:      CityRow[];
+  corridors: CorridorRow[];
+  cities: CityRow[];
   teamMembers: TeamMember[];
 }
 
@@ -106,18 +106,16 @@ function TabBtn({ id, label, icon: Icon, count, active, onClick }: {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12.5px] font-semibold transition-all whitespace-nowrap ${
-        active
+      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12.5px] font-semibold transition-all whitespace-nowrap ${active
           ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
           : "text-slate-500 hover:text-slate-700 hover:bg-white/60"
-      }`}
+        }`}
     >
       <Icon size={13} />
       {label}
       {count !== undefined && (
-        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold min-w-[20px] text-center ${
-          active ? "bg-brand-600 text-white" : "bg-slate-200 text-slate-500"
-        }`}>
+        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold min-w-[20px] text-center ${active ? "bg-brand-600 text-white" : "bg-slate-200 text-slate-500"
+          }`}>
           {count}
         </span>
       )}
@@ -162,11 +160,10 @@ function DisruptionItem({ d, showRoute = true }: { d: SegmentDisruption; showRou
             {/* How fresh the underlying scan data is */}
             {d.lastCheckedAt && (
               <span
-                className={`text-[10px] px-2 py-0.5 rounded-full ${
-                  Date.now() - new Date(d.lastCheckedAt).getTime() > 20 * 3600 * 1000
+                className={`text-[10px] px-2 py-0.5 rounded-full ${Date.now() - new Date(d.lastCheckedAt).getTime() > 20 * 3600 * 1000
                     ? "bg-amber-50 text-amber-600 border border-amber-200"
                     : "bg-slate-100 text-slate-400"
-                }`}
+                  }`}
                 title={`Scanned: ${fmtDate(d.lastCheckedAt)}`}
               >
                 🔍 scanned {timeAgo(d.lastCheckedAt)}
@@ -204,7 +201,7 @@ function CitiesTab({
   cities: CityRow[]; stateGroups: StateGroup[]; corridors: CorridorRow[];
   teamMembers: TeamMember[]; pal: typeof PAL[string]; regionId: string;
 }) {
-  const [search, setSearch]     = useState("");
+  const [search, setSearch] = useState("");
   const [riskFilter, setFilter] = useState<"all" | "alerts" | "clear">("all");
 
   // Flat list of ALL disruptions across all states in this region
@@ -226,11 +223,11 @@ function CitiesTab({
     // This prevents Bangalore rain from bleeding into Dabaspet / Hubli cards.
     const disps = allDisps.filter((d) => {
       if (d.riskLevel !== "critical" && d.riskLevel !== "high") return false;
-      const segLow   = d.segmentName.toLowerCase();
-      const titLow   = d.title.toLowerCase();
-      const sumLow   = (d.summary ?? "").toLowerCase();
-      const onServingCorridor  = servingRouteIds.has(d.routeId);
-      const segMatchesCity     = segLow.includes(cityLower) || cityLower.includes(segLow);
+      const segLow = d.segmentName.toLowerCase();
+      const titLow = d.title.toLowerCase();
+      const sumLow = (d.summary ?? "").toLowerCase();
+      const onServingCorridor = servingRouteIds.has(d.routeId);
+      const segMatchesCity = segLow.includes(cityLower) || cityLower.includes(segLow);
       const contentMentionsCity = titLow.includes(cityLower) || sumLow.includes(cityLower);
       return onServingCorridor || segMatchesCity || contentMentionsCity;
     });
@@ -250,7 +247,7 @@ function CitiesTab({
       );
     }
     if (riskFilter === "alerts") list = list.filter(({ disps }) => disps.length > 0);
-    if (riskFilter === "clear")  list = list.filter(({ disps }) => disps.length === 0);
+    if (riskFilter === "clear") list = list.filter(({ disps }) => disps.length === 0);
     return [...list].sort((a, b) => {
       const aCrit = a.disps.filter((d) => d.riskLevel === "critical").length;
       const bCrit = b.disps.filter((d) => d.riskLevel === "critical").length;
@@ -263,8 +260,8 @@ function CitiesTab({
 
   // Region summary stats derived from the city view
   const totalAlertsAcrossCities = cityView.reduce((n, { disps }) => n + disps.length, 0);
-  const citiesWithAlerts        = cityView.filter(({ disps }) => disps.length > 0);
-  const criticalCities          = citiesWithAlerts.filter(({ disps }) => disps.some((d) => d.riskLevel === "critical"));
+  const citiesWithAlerts = cityView.filter(({ disps }) => disps.length > 0);
+  const criticalCities = citiesWithAlerts.filter(({ disps }) => disps.some((d) => d.riskLevel === "critical"));
 
   return (
     <div className="space-y-4">
@@ -356,109 +353,9 @@ function CitiesTab({
 
       {filtered.length === 0
         ? <SectionEmpty icon={ShieldCheck} title="No matching cities" sub="Try a different filter or search term." />
-        : filtered.map(({ city, disps, corrs, team }) => {
-          const critical = disps.filter((d) => d.riskLevel === "critical").length;
-          const high     = disps.filter((d) => d.riskLevel === "high").length;
-          const [open, setOpen] = [disps.length > 0, () => {}]; // always open if alerts
-          // eslint-disable-next-line react-hooks/rules-of-hooks
-          const [expanded, setExpanded] = useState(disps.length > 0);
-
-          return (
-            <div key={city.id} className={`rounded-2xl border shadow-sm overflow-hidden ${critical > 0 ? "border-red-200" : high > 0 ? "border-orange-200" : "border-slate-200"}`}>
-              {/* City header */}
-              <button type="button" onClick={() => setExpanded((v) => !v)} className="w-full flex items-center gap-3 px-5 py-4 bg-white hover:bg-slate-50/60 text-left transition group">
-                <div className={`w-1 self-stretch rounded-full shrink-0 ${critical > 0 ? "bg-red-500" : high > 0 ? "bg-orange-400" : "bg-emerald-400"}`} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[15px] font-bold text-slate-800">{city.name}</span>
-                    {city.is_depot && <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${pal.badge}`}>Depot</span>}
-                    <span className="text-[11px] text-slate-400">{city.state}</span>
-                  </div>
-                  <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                    {disps.length > 0 ? (
-                      <>
-                        {critical > 0 && <span className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><span className="w-1.5 h-1.5 rounded-full bg-red-500" />{critical} critical</span>}
-                        {high > 0     && <span className="flex items-center gap-1 text-[11px] font-semibold text-orange-600"><span className="w-1.5 h-1.5 rounded-full bg-orange-400" />{high} high</span>}
-                      </>
-                    ) : (
-                      <span className="flex items-center gap-1 text-[11px] text-emerald-600 font-semibold"><ShieldCheck size={11} /> Clear</span>
-                    )}
-                    {corrs.length > 0 && <span className="text-[10px] text-slate-400">{corrs.length} corridor{corrs.length !== 1 ? "s" : ""}</span>}
-                    {team.length > 0  && <span className="text-[10px] text-slate-400">{team.length} team</span>}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {disps.length > 0 && <RiskBadge level={(critical > 0 ? "critical" : "high") as RiskLevel} size="xs" pulse={critical > 0} />}
-                  <ChevronRight size={14} className={`text-slate-300 group-hover:text-slate-500 transition-all ${expanded ? "rotate-90" : ""}`} />
-                </div>
-              </button>
-
-              {expanded && (
-                <div className="border-t border-slate-100 bg-slate-50/50 divide-y divide-slate-100">
-                  {/* Disruptions */}
-                  {disps.length > 0 && (
-                    <div className="px-5 py-4">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
-                        <AlertTriangle size={11} className="text-orange-500" /> Active Alerts ({disps.length})
-                      </p>
-                      <div className="space-y-2">{disps.map((d) => <DisruptionItem key={d.id} d={d} />)}</div>
-                    </div>
-                  )}
-                  {/* Corridors */}
-                  {corrs.length > 0 && (
-                    <div className="px-5 py-4">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
-                        <Route size={11} className="text-slate-400" /> Corridors ({corrs.length})
-                      </p>
-                      <div className="space-y-1.5">
-                        {corrs.map((c) => (
-                          <Link key={c.id} href={`/advisory/planned/${c.id}`} className="flex items-center gap-3 px-3 py-2.5 bg-white rounded-xl border border-slate-200 hover:border-brand-300 hover:bg-brand-50/30 transition group">
-                            <Route size={12} className="text-slate-400 shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[12.5px] font-semibold text-slate-700 group-hover:text-brand-700 truncate">{c.name}</p>
-                              <p className="text-[10px] text-slate-400 truncate">{c.origin} → {c.destination}</p>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              {c.max_risk_level && c.max_risk_level !== "safe" ? <RiskBadge level={c.max_risk_level as RiskLevel} size="xs" /> : <span className="text-[10px] text-emerald-500 font-medium">Clear</span>}
-                            </div>
-                            <ArrowRight size={11} className="text-slate-300 group-hover:text-brand-400" />
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {/* Team */}
-                  {team.length > 0 && (
-                    <div className="px-5 py-4">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
-                        <Users size={11} className="text-slate-400" /> Team ({team.length})
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {team.map((m) => (
-                          <div key={m.id} className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5">
-                            <div className="w-5 h-5 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 text-[9px] font-bold">{m.full_name.charAt(0)}</div>
-                            <div>
-                              <p className="text-[11px] font-semibold text-slate-700 leading-none">{m.full_name}</p>
-                              <p className="text-[9.5px] text-slate-400">{ROLE_LABELS[m.role] ?? m.role}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {disps.length === 0 && corrs.length === 0 && team.length === 0 && (
-                    <div className="px-5 py-5 text-center space-y-1">
-                      <p className="text-[12px] text-slate-400">No corridors with <span className="font-semibold">{city.name}</span> as origin or destination.</p>
-                      <p className="text-[11px] text-slate-300">
-                        Add a watched corridor with {city.name} as an endpoint to start receiving city-level intelligence.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })
+        : filtered.map(({ city, disps, corrs, team }) => (
+          <CityCard key={city.id} city={city} disps={disps} corrs={corrs} team={team} pal={pal} />
+        ))
       }
     </div>
   );
@@ -535,11 +432,11 @@ function CorridorsTab({ corridors, regionId }: { corridors: CorridorRow[]; regio
 // ── TAB 3: Disruptions ────────────────────────────────────────────────────────
 function DisruptionsTab({ regionId }: { regionId: string }) {
   const [disruptions, setDisruptions] = useState<Disruption[]>([]);
-  const [loaded, setLoaded]           = useState(false);
-  const [loading, setLoading]         = useState(false);
-  const [search, setSearch]           = useState("");
-  const [riskFilter, setRisk]         = useState<string>("all");
-  const [catFilter, setCat]           = useState<string>("all");
+  const [loaded, setLoaded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [riskFilter, setRisk] = useState<string>("all");
+  const [catFilter, setCat] = useState<string>("all");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -556,9 +453,9 @@ function DisruptionsTab({ regionId }: { regionId: string }) {
 
   const filtered = useMemo(() => disruptions.filter((d) => {
     const q = search.toLowerCase();
-    const matchQ    = !q || d.title.toLowerCase().includes(q) || d.state.toLowerCase().includes(q) || (d.affectedRoutes[0] ?? "").toLowerCase().includes(q);
+    const matchQ = !q || d.title.toLowerCase().includes(q) || d.state.toLowerCase().includes(q) || (d.affectedRoutes[0] ?? "").toLowerCase().includes(q);
     const matchRisk = riskFilter === "all" || d.risk === riskFilter;
-    const matchCat  = catFilter  === "all" || d.category === catFilter;
+    const matchCat = catFilter === "all" || d.category === catFilter;
     return matchQ && matchRisk && matchCat;
   }), [disruptions, search, riskFilter, catFilter]);
 
@@ -611,7 +508,7 @@ function EventsTab({ regionId }: { regionId: string }) {
   const [events, setEvents] = useState<CorridorEvent[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab]       = useState<"scheduled" | "ongoing" | "historical">("scheduled");
+  const [tab, setTab] = useState<"scheduled" | "ongoing" | "historical">("scheduled");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -629,7 +526,7 @@ function EventsTab({ regionId }: { regionId: string }) {
   const byTab = useMemo(() => events.filter((e) => e.event_type === tab), [events, tab]);
   const counts = useMemo(() => ({
     scheduled: events.filter((e) => e.event_type === "scheduled").length,
-    ongoing:   events.filter((e) => e.event_type === "ongoing").length,
+    ongoing: events.filter((e) => e.event_type === "ongoing").length,
     historical: events.filter((e) => e.event_type === "historical").length,
   }), [events]);
 
@@ -696,9 +593,9 @@ function EventsTab({ regionId }: { regionId: string }) {
 // ── TAB 5: AI Advisories ──────────────────────────────────────────────────────
 function AdvisoriesTab({ regionId }: { regionId: string }) {
   const [advisories, setAdvisories] = useState<Advisory[]>([]);
-  const [loaded, setLoaded]         = useState(false);
-  const [loading, setLoading]       = useState(false);
-  const [filter, setFilter]         = useState("all");
+  const [loaded, setLoaded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState("all");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -846,10 +743,10 @@ type TabId = "cities" | "corridors" | "disruptions" | "events" | "advisories" | 
 
 export default function RegionDetailPage({ params }: { params: Promise<{ regionId: string }> }) {
   const { regionId } = use(params);
-  const [data, setData]       = useState<RegionDetail | null>(null);
+  const [data, setData] = useState<RegionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setTab]   = useState<TabId>("cities");
+  const [activeTab, setTab] = useState<TabId>("cities");
   const pal = PAL[regionId] ?? PAL.north;
 
   async function load(isRefresh = false) {
@@ -878,12 +775,12 @@ export default function RegionDetailPage({ params }: { params: Promise<{ regionI
   const citiesAffected = stateGroups.length;
 
   const TABS: { id: TabId; label: string; icon: React.ElementType; count?: number }[] = [
-    { id: "cities",      label: "Cities & Alerts",  icon: Building2,   count: cities.length },
-    { id: "corridors",   label: "Corridors",         icon: Route,       count: stats.corridors },
-    { id: "disruptions", label: "Disruptions",       icon: AlertTriangle, count: stats.disruptions },
-    { id: "events",      label: "Fleet Events",      icon: Calendar },
-    { id: "advisories",  label: "AI Advisories",     icon: BrainCircuit },
-    { id: "team",        label: "Team",              icon: Users,       count: stats.teamMembers },
+    { id: "cities", label: "Cities & Alerts", icon: Building2, count: cities.length },
+    { id: "corridors", label: "Corridors", icon: Route, count: stats.corridors },
+    { id: "disruptions", label: "Disruptions", icon: AlertTriangle, count: stats.disruptions },
+    { id: "events", label: "Fleet Events", icon: Calendar },
+    { id: "advisories", label: "AI Advisories", icon: BrainCircuit },
+    { id: "team", label: "Team", icon: Users, count: stats.teamMembers },
   ];
 
   return (
@@ -929,12 +826,12 @@ export default function RegionDetailPage({ params }: { params: Promise<{ regionI
               {/* KPI row */}
               <div className="flex items-end gap-6 mt-5 flex-wrap">
                 {[
-                  { label: "Critical",     value: stats.critical,     cls: "text-red-200",    show: stats.critical > 0 },
-                  { label: "High",         value: stats.high,         cls: "text-orange-200", show: stats.high > 0 },
-                  { label: "Disruptions",  value: stats.disruptions,  cls: "text-white",      show: true },
-                  { label: "Cities hit",   value: citiesAffected,     cls: "text-white/80",   show: true },
-                  { label: "Corridors",    value: stats.corridors,    cls: "text-white/60",   show: true },
-                  { label: "Team",         value: stats.teamMembers,  cls: "text-white/50",   show: true },
+                  { label: "Critical", value: stats.critical, cls: "text-red-200", show: stats.critical > 0 },
+                  { label: "High", value: stats.high, cls: "text-orange-200", show: stats.high > 0 },
+                  { label: "Disruptions", value: stats.disruptions, cls: "text-white", show: true },
+                  { label: "Cities hit", value: citiesAffected, cls: "text-white/80", show: true },
+                  { label: "Corridors", value: stats.corridors, cls: "text-white/60", show: true },
+                  { label: "Team", value: stats.teamMembers, cls: "text-white/50", show: true },
                 ].map(({ label, value, cls, show }) => show && (
                   <div key={label} className="text-center">
                     <div className={`text-2xl font-bold num ${cls}`}>{value}</div>
@@ -988,6 +885,112 @@ export default function RegionDetailPage({ params }: { params: Promise<{ regionI
 
         </div>
       </div>
+    </div>
+  );
+}
+
+
+function CityCard({
+  city, disps, corrs, team, pal,
+}: {
+  city: CityRow;
+  disps: SegmentDisruption[];
+  corrs: CorridorRow[];
+  team: TeamMember[];
+  pal: typeof PAL[string];
+}) {
+  const [expanded, setExpanded] = useState(disps.length > 0);
+  const critical = disps.filter((d) => d.riskLevel === "critical").length;
+  const high = disps.filter((d) => d.riskLevel === "high").length;
+
+  return (
+    <div className={`rounded-2xl border shadow-sm overflow-hidden ${critical > 0 ? "border-red-200" : high > 0 ? "border-orange-200" : "border-slate-200"}`}>
+      {/* City header */}
+      <button type="button" onClick={() => setExpanded((v) => !v)} className="w-full flex items-center gap-3 px-5 py-4 bg-white hover:bg-slate-50/60 text-left transition group">
+        <div className={`w-1 self-stretch rounded-full shrink-0 ${critical > 0 ? "bg-red-500" : high > 0 ? "bg-orange-400" : "bg-emerald-400"}`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[15px] font-bold text-slate-800">{city.name}</span>
+            {city.is_depot && <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${pal.badge}`}>Depot</span>}
+            <span className="text-[11px] text-slate-400">{city.state}</span>
+          </div>
+          <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+            {disps.length > 0 ? (
+              <>
+                {critical > 0 && <span className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><span className="w-1.5 h-1.5 rounded-full bg-red-500" />{critical} critical</span>}
+                {high > 0 && <span className="flex items-center gap-1 text-[11px] font-semibold text-orange-600"><span className="w-1.5 h-1.5 rounded-full bg-orange-400" />{high} high</span>}
+              </>
+            ) : (
+              <span className="flex items-center gap-1 text-[11px] text-emerald-600 font-semibold"><ShieldCheck size={11} /> Clear</span>
+            )}
+            {corrs.length > 0 && <span className="text-[10px] text-slate-400">{corrs.length} corridor{corrs.length !== 1 ? "s" : ""}</span>}
+            {team.length > 0 && <span className="text-[10px] text-slate-400">{team.length} team</span>}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {disps.length > 0 && <RiskBadge level={(critical > 0 ? "critical" : "high") as RiskLevel} size="xs" pulse={critical > 0} />}
+          <ChevronRight size={14} className={`text-slate-300 group-hover:text-slate-500 transition-all ${expanded ? "rotate-90" : ""}`} />
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-slate-100 bg-slate-50/50 divide-y divide-slate-100">
+          {disps.length > 0 && (
+            <div className="px-5 py-4">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
+                <AlertTriangle size={11} className="text-orange-500" /> Active Alerts ({disps.length})
+              </p>
+              <div className="space-y-2">{disps.map((d) => <DisruptionItem key={d.id} d={d} />)}</div>
+            </div>
+          )}
+          {corrs.length > 0 && (
+            <div className="px-5 py-4">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
+                <Route size={11} className="text-slate-400" /> Corridors ({corrs.length})
+              </p>
+              <div className="space-y-1.5">
+                {corrs.map((c) => (
+                  <Link key={c.id} href={`/advisory/planned/${c.id}`} className="flex items-center gap-3 px-3 py-2.5 bg-white rounded-xl border border-slate-200 hover:border-brand-300 hover:bg-brand-50/30 transition group">
+                    <Route size={12} className="text-slate-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12.5px] font-semibold text-slate-700 group-hover:text-brand-700 truncate">{c.name}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{c.origin} → {c.destination}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {c.max_risk_level && c.max_risk_level !== "safe" ? <RiskBadge level={c.max_risk_level as RiskLevel} size="xs" /> : <span className="text-[10px] text-emerald-500 font-medium">Clear</span>}
+                    </div>
+                    <ArrowRight size={11} className="text-slate-300 group-hover:text-brand-400" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+          {team.length > 0 && (
+            <div className="px-5 py-4">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
+                <Users size={11} className="text-slate-400" /> Team ({team.length})
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {team.map((m) => (
+                  <div key={m.id} className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5">
+                    <div className="w-5 h-5 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 text-[9px] font-bold">{m.full_name.charAt(0)}</div>
+                    <div>
+                      <p className="text-[11px] font-semibold text-slate-700 leading-none">{m.full_name}</p>
+                      <p className="text-[9.5px] text-slate-400">{ROLE_LABELS[m.role] ?? m.role}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {disps.length === 0 && corrs.length === 0 && team.length === 0 && (
+            <div className="px-5 py-5 text-center space-y-1">
+              <p className="text-[12px] text-slate-400">No corridors with <span className="font-semibold">{city.name}</span> as origin or destination.</p>
+              <p className="text-[11px] text-slate-300">Add a watched corridor with {city.name} as an endpoint to start receiving city-level intelligence.</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -136,27 +136,27 @@ export async function GET(
     .map(([state, segs]) => ({
       state,
       disruptions: segs.map((s) => ({
-        id:                   s.id,
-        segmentName:          s.segment_name,
-        title:                s.disruption_title ?? `Disruption on ${s.segment_name}`,
-        summary:              s.disruption_summary ?? "",
-        riskLevel:            s.disruption_risk_level as RiskLevel,
-        etaImpactHours:       s.disruption_eta_hours ?? 0,
-        category:             (s.disruption_category ?? "traffic") as DisruptionCategory,
-        routeId:              s.route_id,
-        routeName:            s.route_name,
-        lastCheckedAt:        s.last_checked_at,
-        firstSeenAt:          s.disruption_first_seen_at,
-        sources:              Array.isArray(s.disruption_sources)
+        id: s.id,
+        segmentName: s.segment_name,
+        title: s.disruption_title ?? `Disruption on ${s.segment_name}`,
+        summary: s.disruption_summary ?? "",
+        riskLevel: s.disruption_risk_level as RiskLevel,
+        etaImpactHours: s.disruption_eta_hours ?? 0,
+        category: (s.disruption_category ?? "traffic") as DisruptionCategory,
+        routeId: s.route_id,
+        routeName: s.route_name,
+        lastCheckedAt: s.last_checked_at,
+        firstSeenAt: s.disruption_first_seen_at,
+        sources: Array.isArray(s.disruption_sources)
           ? (s.disruption_sources as EventSource[]).filter((src) => src.isRelevant)
           : [],
       })),
     }));
 
   // Stats
-  const critical     = dedupedSegs.filter((s) => s.disruption_risk_level === "critical").length;
-  const high         = dedupedSegs.filter((s) => s.disruption_risk_level === "high").length;
-  const statesHit    = byState.size;
+  const critical = dedupedSegs.filter((s) => s.disruption_risk_level === "critical").length;
+  const high = dedupedSegs.filter((s) => s.disruption_risk_level === "high").length;
+  const statesHit = byState.size;
 
   let worstRisk = "safe";
   for (const s of dedupedSegs) {
@@ -183,20 +183,20 @@ export async function GET(
 
   return applySecurityHeaders(NextResponse.json({
     region: {
-      id:      region.id,
-      label:   region.label,
-      color:   region.color,
-      states:  region.states,
+      id: region.id,
+      label: region.label,
+      color: region.color,
+      states: region.states,
     },
     stats: {
-      disruptions:  dedupedSegs.length,
+      disruptions: dedupedSegs.length,
       critical,
       high,
       statesHit,
       worstRisk,
-      corridors:    corridors.length,
-      cities:       cities.length,
-      teamMembers:  teamMembers.length,
+      corridors: corridors.length,
+      cities: cities.length,
+      teamMembers: teamMembers.length,
       lastIntelAt,
     },
     stateGroups,
