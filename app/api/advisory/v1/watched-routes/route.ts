@@ -10,6 +10,7 @@ const CreateSchema = z.object({
   name:        z.string().trim().max(100).default(""),
   origin:      z.string().trim().min(1).max(100),
   destination: z.string().trim().min(1).max(100),
+  region_id:   z.string().max(100).nullable().optional(),
 });
 
 // GET /api/advisory/v1/watched-routes — list routes for the authenticated org
@@ -72,13 +73,23 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { name, origin, destination } = parsed.data;
+  const { name, origin, destination, region_id } = parsed.data;
   const id = uuidv7();
   const orgId = actor.org;
 
+  // Verify region exists if provided
+  if (region_id) {
+    const [region] = await db`
+      SELECT id FROM adv_regions WHERE id = ${region_id}
+    ` as unknown as Array<{ id: string }>;
+    if (!region) {
+      return applySecurityHeaders(NextResponse.json({ error: "Region not found" }, { status: 404 }));
+    }
+  }
+
   await db`
-    INSERT INTO adv_watched_routes (id, org_id, name, origin, destination)
-    VALUES (${id}, ${orgId}, ${name || `${origin} → ${destination}`}, ${origin}, ${destination})
+    INSERT INTO adv_watched_routes (id, org_id, name, origin, destination, region_id)
+    VALUES (${id}, ${orgId}, ${name || `${origin} → ${destination}`}, ${origin}, ${destination}, ${region_id || null})
   `;
 
   // Kick off route decomposition in the background — don't block the response.

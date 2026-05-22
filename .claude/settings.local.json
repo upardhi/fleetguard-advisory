@@ -132,7 +132,12 @@
       "Bash(taskkill //F //PID 16724)",
       "Bash(git add *)",
       "Bash(git commit -m 'Production-Ready Fixes: Data consistency, Job monitoring, Risk levels *)",
-      "Bash(psql -h localhost -U postgres -d fleetguard -c \"\\\\d adv_watched_routes\")"
+      "Bash(psql -h localhost -U postgres -d fleetguard -c \"\\\\d adv_watched_routes\")",
+      "Bash(grep -E \"\\\\.\\(tsx|ts|jsx|js\\)$\")",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Bash(npm run *)",
+      "Bash(taskkill /PID 2768 /F)",
+      "Bash(pkill -f \"next dev\")"
     ]
   }
 }
