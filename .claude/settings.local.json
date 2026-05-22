@@ -121,7 +121,15 @@
       "Bash(Select-String -Pattern \"leaflet|mapbox|google|map\")",
       "Bash(grep -E \"^\\(✖|✓|C:\\\\\\\\\\\\\\\\|  [0-9]+\\)\")",
       "Bash(Select-String \"error\")",
-      "Bash(Select-String \"Programming\")"
+      "Bash(Select-String \"Programming\")",
+      "Bash(git diff *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/advisory)",
+      "Bash(curl -s http://localhost:3000/api/advisory/v1/intelligence)",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/v2/login -H \"Content-Type: application/json\" -d \"{\\\\\"email\\\\\":\\\\\"admin@itc.com\\\\\",\\\\\"password\\\\\":\\\\\"admin123\\\\\"}\")",
+      "Bash(curl -s http://localhost:3000/api/auth/v2/me)",
+      "PowerShell($env:SUPABASE_POOLER_URL = \"postgresql://postgres.iexnandsthtdotgqlahf:znh7zLSt.2axXHd@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require\"; cd \"C:\\\\Programming\\\\itc\\\\fleetguard-advisory\"; npx tsx scripts/migrate-advisory-regions.ts 2>&1)",
+      "PowerShell(cd \"C:\\\\Programming\\\\itc\\\\fleetguard-advisory\"; $env:SUPABASE_POOLER_URL = \\(Get-Content .env.local | Select-String \"^SUPABASE_POOLER_URL=\"\\).Line.Split\\(\"=\", 2\\)[1]; npx tsx scripts\\\\check-db.ts 2>&1 | Select-Object -First 5)",
+      "Bash(taskkill //F //PID 16724)"
     ]
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/app/_server/auth/getUser";
 import { db } from "@/app/_server/db/client";
 import { firecrawlSearch, firecrawlSearchFuture, firecrawlScrape } from "@/app/_server/advisory/firecrawl";
 import { analyzeNews } from "@/app/_server/advisory/analyze";
@@ -46,11 +47,16 @@ interface EventSource {
 
 // POST /api/cron/run-intelligence
 // Fires every minute via Vercel Cron.
+// Also callable manually by authenticated users (Settings → "Process Jobs Now").
 // Each invocation processes one batch of segments for the oldest pending/running job.
 export async function POST(req: NextRequest) {
+  // Accept either Vercel cron auth header OR a valid user session cookie.
+  // This lets the Settings page trigger scans locally without exposing the cron secret.
   const cronSecret = req.headers.get("x-vercel-cron-auth") ?? "";
-  if (process.env.CRON_SECRET && cronSecret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const hasCronAuth = !process.env.CRON_SECRET || cronSecret === process.env.CRON_SECRET;
+  if (!hasCronAuth) {
+    try { await requireUser(req); }
+    catch { return NextResponse.json({ error: "Forbidden" }, { status: 403 }); }
   }
 
   // Atomically claim the oldest pending or in-progress job

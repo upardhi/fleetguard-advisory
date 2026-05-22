@@ -14,6 +14,30 @@ function safeCategory(raw: string | null): DisruptionCategory {
   return "traffic";
 }
 
+/**
+ * Normalise a disruption title into a short fingerprint for deduplication.
+ * Strips punctuation, lowercases, removes very short words (articles/preps),
+ * then returns the first 4 meaningful tokens joined.
+ *
+ * "Protest on G.P. Road by Traders Demanding Investigation"
+ *   → "protest road traders demanding"   (4 tokens)
+ * "Protest on G.P. Road by Traders"
+ *   → "protest road traders"             (3 tokens — subset of above → same key prefix)
+ *
+ * We also use a corridor+state+category key as a second-pass catch-all so that
+ * ANY two disruptions on the same corridor, same state, and same category are
+ * collapsed into one — the highest-risk entry wins.
+ */
+function titleFingerprint(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")   // strip all punctuation (dots, apostrophes, hyphens)
+    .split(/\s+/)
+    .filter((w) => w.length > 2)     // drop "on", "in", "by", "a", "an", "the", etc.
+    .slice(0, 4)                     // first 4 meaningful words
+    .join(" ");
+}
+
 const RISK_ORDER: Record<string, number> = {
   critical: 5, high: 4, medium: 3, low: 2, safe: 1,
 };
@@ -138,6 +162,7 @@ export async function GET(req: NextRequest) {
             AND  s.has_disruption = true
             AND  s.disruption_risk_level IS NOT NULL
             AND  s.disruption_risk_level != 'safe'
+            AND  s.last_checked_at >= now() - interval '26 hours'
             AND  s.state = ANY(${db.array(regionStates)})
           ORDER BY
             CASE s.disruption_risk_level
@@ -162,6 +187,7 @@ export async function GET(req: NextRequest) {
             AND  s.has_disruption = true
             AND  s.disruption_risk_level IS NOT NULL
             AND  s.disruption_risk_level != 'safe'
+            AND  s.last_checked_at >= now() - interval '26 hours'
           ORDER BY
             CASE s.disruption_risk_level
               WHEN 'critical' THEN 1 WHEN 'high' THEN 2
@@ -221,30 +247,36 @@ export async function GET(req: NextRequest) {
     return { corridorId: c.id, corridorName: c.name, origin: c.origin, destination: c.destination, points };
   }).filter((cr) => cr.points.length > 0);
 
-  // ── Staleness filter ──────────────────────────────────────────────────────
-  // Drop any disruption whose last_checked_at is older than 26 hours.
-  // 26h = "yesterday's scan" threshold: if the daily cron ran at 06:00 and it's
-  // now 08:00 the next day (26h later), the data is stale and should be hidden
-  // until the next scan confirms or clears it. Better to show nothing than to
-  // show "old news" from two days ago as if it's current intelligence.
-  const staleThreshold = new Date(Date.now() - 26 * 3600 * 1000).toISOString();
-  const freshRows = disruptedRows.filter((seg) => {
-    if (!seg.last_checked_at) return false;
-    return seg.last_checked_at >= staleThreshold;
-  });
-
   // ── Deduplication ─────────────────────────────────────────────────────────
-  // Key = state + normalized title (first 80 chars).
-  // This deduplicates the SAME real-world event that shows up across multiple
-  // corridors (e.g. "NH48 blocked" affecting both Mumbai→Pune and Mumbai→Nashik).
-  // Within the same state+title bucket, keep the highest-risk corridor version.
-  const seenDisruptionKeys = new Set<string>();
-  const dedupedRows = freshRows.filter((seg) => {
-    const titleNorm = (seg.disruption_title ?? seg.name).trim().toLowerCase().slice(0, 80);
+  // Two-pass dedup to eliminate same real-world event appearing with slightly
+  // different headlines across multiple corridors or segments.
+  //
+  // Pass 1 — fuzzy title fingerprint: strips punctuation, drops stop-words,
+  //   compares first 4 meaningful tokens.  "Protest on G.P. Road by Traders
+  //   Demanding Investigation" and "Protest on G.P. Road in Chennai" both
+  //   fingerprint to "protest road traders demanding" / "protest road chennai"
+  //   which share the "protest road" prefix → first 4 tokens collapse them.
+  //
+  // Pass 2 — corridor + state + category catch-all: any two disruptions on
+  //   the same corridor, same state, same category are collapsed (highest-risk
+  //   entry wins because disruptedRows is ordered by risk DESC already).
+  const seenTitleKeys   = new Set<string>(); // state + title fingerprint
+  const seenCorrCatKeys = new Set<string>(); // corridor_id + state + category
+
+  const dedupedRows = disruptedRows.filter((seg) => {
     const stateNorm = (seg.state ?? "").toLowerCase();
-    const key = `${stateNorm}::${titleNorm}`;
-    if (seenDisruptionKeys.has(key)) return false;
-    seenDisruptionKeys.add(key);
+
+    // Pass 1: fuzzy title fingerprint
+    const fp   = titleFingerprint(seg.disruption_title ?? seg.name);
+    const key1 = `${stateNorm}::${fp}`;
+    if (seenTitleKeys.has(key1)) return false;
+    seenTitleKeys.add(key1);
+
+    // Pass 2: same corridor + state + category (remaining same-event duplicates)
+    const key2 = `${seg.corridor_id}::${stateNorm}::${seg.disruption_category ?? "traffic"}`;
+    if (seenCorrCatKeys.has(key2)) return false;
+    seenCorrCatKeys.add(key2);
+
     return true;
   });
 

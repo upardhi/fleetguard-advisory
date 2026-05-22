@@ -204,12 +204,13 @@ function ControlTowerLeafletMap({
   const mapRef         = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
   const layersRef      = useRef<import("leaflet").Layer[]>([]);
+  const hasFittedRef   = useRef(false);
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
     import("leaflet").then((L) => {
       delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
-      const map = L.map(mapRef.current!, { center: [22.5, 82.5], zoom: 5, zoomControl: true, scrollWheelZoom: true });
+      const map = L.map(mapRef.current!, { center: [22.5, 82.0], zoom: 5, zoomControl: true, scrollWheelZoom: true });
       mapInstanceRef.current = map;
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -227,6 +228,14 @@ function ControlTowerLeafletMap({
     if (!mapInstanceRef.current) return;
     import("leaflet").then((L) => {
       renderMapLayers(L, mapInstanceRef.current!, layersRef, corridorRoutes, disruptions, onDisruptionClick);
+      // Auto-fit to all corridor points on first data load so no route is clipped
+      if (!hasFittedRef.current && corridorRoutes.length > 0) {
+        const allPts = corridorRoutes.flatMap((cr) => cr.points.map((p) => [p.lat, p.lng] as [number, number]));
+        if (allPts.length > 0) {
+          mapInstanceRef.current!.fitBounds(L.latLngBounds(allPts), { padding: [30, 30], maxZoom: 6 });
+          hasFittedRef.current = true;
+        }
+      }
     });
   }, [corridorRoutes, disruptions, onDisruptionClick]);
 

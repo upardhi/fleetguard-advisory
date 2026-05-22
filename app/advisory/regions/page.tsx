@@ -189,14 +189,14 @@ export default function RegionsPage() {
                 <div className="grid grid-cols-12 px-5 py-2 bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   <div className="col-span-2">Region</div>
                   <div className="col-span-1 text-center">Risk</div>
-                  <div className="col-span-1 text-center">Critical</div>
-                  <div className="col-span-1 text-center">High</div>
+                  <div className="col-span-1 text-center overflow-hidden">Critical</div>
+                  <div className="col-span-1 text-center overflow-hidden">High</div>
                   <div className="col-span-1 text-center">Total</div>
                   <div className="col-span-2">Top Issue</div>
-                  <div className="col-span-1 text-center">Corridors</div>
-                  <div className="col-span-1 text-center">Cities</div>
-                  <div className="col-span-1 text-center">Team</div>
-                  <div className="col-span-1 text-right">Last Scan</div>
+                  <div className="col-span-1 text-center overflow-hidden">Routes</div>
+                  <div className="col-span-1 text-center overflow-hidden">Cities</div>
+                  <div className="col-span-1 text-center overflow-hidden">Team</div>
+                  <div className="col-span-1 text-right overflow-hidden">Last Scan</div>
                 </div>
 
                 {regions.map((r) => {

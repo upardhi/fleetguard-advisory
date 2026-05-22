@@ -104,22 +104,32 @@ export default function AdvisoriesPage() {
                 <p className="text-2xl font-bold text-slate-900 num">{loading ? "—" : advisories.length}</p>
               </div>
             </div>
-            <div className="bg-red-50 rounded-xl border border-red-200 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
-                <Zap size={18} className="text-red-600" />
+            <div className={`rounded-xl border shadow-sm p-4 flex items-center gap-3 ${
+              !loading && urgentCount > 0 ? "bg-red-50 border-red-200" : "bg-white border-slate-200"
+            }`}>
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                !loading && urgentCount > 0 ? "bg-red-100" : "bg-slate-50"
+              }`}>
+                <Zap size={18} className={!loading && urgentCount > 0 ? "text-red-600" : "text-slate-400"} />
               </div>
               <div>
-                <p className="text-xs text-red-600">Urgent Actions</p>
-                <p className="text-2xl font-bold text-red-700 num">{loading ? "—" : urgentCount}</p>
+                <p className="text-xs text-slate-500">Urgent Actions</p>
+                <p className={`text-2xl font-bold num ${!loading && urgentCount > 0 ? "text-red-700" : "text-slate-900"}`}>
+                  {loading ? "—" : urgentCount}
+                </p>
               </div>
             </div>
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
-                <CheckCircle size={18} className="text-emerald-600" />
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                !loading && avgConfidence > 0 ? "bg-emerald-50" : "bg-slate-50"
+              }`}>
+                <CheckCircle size={18} className={!loading && avgConfidence > 0 ? "text-emerald-600" : "text-slate-400"} />
               </div>
               <div>
                 <p className="text-xs text-slate-500">Avg Confidence</p>
-                <p className="text-2xl font-bold text-emerald-600 num">{loading ? "—" : `${avgConfidence}%`}</p>
+                <p className={`text-2xl font-bold num ${!loading && avgConfidence > 0 ? "text-emerald-600" : "text-slate-900"}`}>
+                  {loading ? "—" : `${avgConfidence}%`}
+                </p>
               </div>
             </div>
           </div>

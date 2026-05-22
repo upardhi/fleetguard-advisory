@@ -89,12 +89,33 @@ export async function GET(
     route_id: string; route_name: string;
   }[];
 
-  // Deduplicate by title within each corridor
-  const seenKeys = new Set<string>();
+  // Deduplicate — two-pass (mirrors the main intelligence API logic).
+  // Pass 1: state + title fingerprint (strips punctuation, first 4 meaningful tokens).
+  // Pass 2: route + state + category catch-all.
+  function titleFingerprint(title: string): string {
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 2)
+      .slice(0, 4)
+      .join(" ");
+  }
+
+  const seenTitleKeys   = new Set<string>();
+  const seenCorrCatKeys = new Set<string>();
   const dedupedSegs = segments.filter((s) => {
-    const key = `${s.route_id}::${(s.disruption_title ?? s.segment_name).trim().toLowerCase().slice(0, 60)}`;
-    if (seenKeys.has(key)) return false;
-    seenKeys.add(key);
+    const stateNorm = (s.state ?? "").toLowerCase();
+
+    const fp   = titleFingerprint(s.disruption_title ?? s.segment_name);
+    const key1 = `${stateNorm}::${fp}`;
+    if (seenTitleKeys.has(key1)) return false;
+    seenTitleKeys.add(key1);
+
+    const key2 = `${s.route_id}::${stateNorm}::${s.disruption_category ?? "traffic"}`;
+    if (seenCorrCatKeys.has(key2)) return false;
+    seenCorrCatKeys.add(key2);
+
     return true;
   });
 
