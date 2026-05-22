@@ -39,10 +39,10 @@ const RISK_ORDER: Record<string, number> = { critical: 5, high: 4, medium: 3, lo
 const RISK_BASE_SCORE: Record<string, number> = { critical: 88, high: 68, medium: 44, low: 18, safe: 4 };
 
 const REC_CONFIG = {
-  dispatch: { label: "SAFE TO DISPATCH",  icon: CheckCircle, bg: "bg-emerald-50 border-emerald-200" },
-  delay:    { label: "DELAY RECOMMENDED", icon: Clock,       bg: "bg-amber-50 border-amber-200" },
-  reroute:  { label: "REROUTE REQUIRED",  icon: Route,       bg: "bg-orange-50 border-orange-200" },
-  hold:     { label: "HOLD VEHICLE",       icon: XCircle,     bg: "bg-red-50 border-red-200" },
+  dispatch: { label: "SAFE TO DISPATCH", icon: CheckCircle, bg: "bg-emerald-50 border-emerald-200" },
+  delay: { label: "DELAY RECOMMENDED", icon: Clock, bg: "bg-amber-50 border-amber-200" },
+  reroute: { label: "REROUTE REQUIRED", icon: Route, bg: "bg-orange-50 border-orange-200" },
+  hold: { label: "HOLD VEHICLE", icon: XCircle, bg: "bg-red-50 border-red-200" },
 };
 
 const RISK_GAUGE_COLOR: Record<RiskLevel, string> = {
@@ -80,12 +80,12 @@ function computeVariant(segments: WatchedSegment[], variant: number): VariantAna
 }
 
 export default function RouteAnalysisPage() {
-  const [corridors, setCorridors]       = useState<Corridor[]>([]);
-  const [loadingCors, setLoadingCors]   = useState(true);
-  const [region, setRegion]             = useState<RegionId>("all");
-  const [selectedId, setSelectedId]     = useState<string>("");
-  const [segments, setSegments]         = useState<WatchedSegment[] | null>(null);
-  const [loadingAna, setLoadingAna]     = useState(false);
+  const [corridors, setCorridors] = useState<Corridor[]>([]);
+  const [loadingCors, setLoadingCors] = useState(true);
+  const [region, setRegion] = useState<RegionId>("all");
+  const [selectedId, setSelectedId] = useState<string>("");
+  const [segments, setSegments] = useState<WatchedSegment[] | null>(null);
+  const [loadingAna, setLoadingAna] = useState(false);
 
   const loadCorridors = useCallback((r: RegionId) => {
     setLoadingCors(true);
@@ -108,12 +108,13 @@ export default function RouteAnalysisPage() {
     loadCorridors(r);
   }
 
-  async function handleAnalyze() {
-    if (!selectedId) return;
+  async function handleAnalyze(routeId?: string) {
+    const id = routeId ?? selectedId;
+    if (!id) return;
     setLoadingAna(true);
     setSegments(null);
     try {
-      const res = await fetch(`/api/advisory/v1/watched-routes/${selectedId}`, { credentials: "include" });
+      const res = await fetch(`/api/advisory/v1/watched-routes/${id}`, { credentials: "include" });
       if (res.ok) {
         const d = await res.json() as { segments: WatchedSegment[] };
         setSegments(d.segments ?? []);
@@ -204,12 +205,16 @@ export default function RouteAnalysisPage() {
                       {corridors.map((c) => (
                         <button
                           key={c.id}
-                          onClick={() => setSelectedId(c.id)}
-                          className={`w-full text-left px-3.5 py-3 rounded-xl border transition-all ${
-                            selectedId === c.id
-                              ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200"
-                              : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                          }`}
+                          onClick={() => {
+                            if (selectedId === c.id) return;
+
+                            setSelectedId(c.id);
+                            void handleAnalyze(c.id);
+                          }}
+                          className={`w-full text-left px-3.5 py-3 rounded-xl border transition-all ${selectedId === c.id
+                            ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200"
+                            : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                            }`}
                         >
                           <div className="flex items-center gap-2">
                             <Navigation size={12} className={selectedId === c.id ? "text-brand-600" : "text-slate-400"} />
