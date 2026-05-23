@@ -318,7 +318,7 @@ export default function CorridorsPage() {
                           Assign Region
                         </button>
                         <Link
-                          href="/advisory/planner"
+                          href={`/advisory/planner?corridorId=${corridor.id}`}
                           className="text-[11px] text-brand-600 font-semibold hover:underline px-2 py-1"
                         >
                           Plan →
