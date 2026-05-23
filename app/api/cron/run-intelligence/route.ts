@@ -65,14 +65,26 @@ export async function POST(req: NextRequest) {
     SET    status     = 'running',
            started_at = COALESCE(started_at, now())
     WHERE  id = (
-      SELECT id FROM adv_intel_jobs
-      WHERE  status IN ('pending', 'running')
-      ORDER  BY created_at ASC
-      LIMIT  1
+      SELECT j.id 
+      FROM adv_intel_jobs j
+      JOIN adv_watched_routes r ON r.id = j.route_id
+      WHERE j.status IN ('pending', 'running')
+        AND r.is_schedule_active = true
+        AND (
+          r.schedule_type = 'daily'
+          OR (
+            r.schedule_type = 'once' 
+            AND r.scheduled_date <= CURRENT_DATE
+            AND (r.last_scheduled_run IS NULL OR r.last_scheduled_run::date < CURRENT_DATE)
+          )
+        )
+      ORDER BY j.created_at ASC
+      LIMIT 1
       FOR UPDATE SKIP LOCKED
     )
-    RETURNING id, route_id, org_id, segments_total, segments_done, disruptions_found
+    RETURNING j.id, j.route_id, j.org_id, j.segments_total, j.segments_done, j.disruptions_found
   `) as unknown as Job[];
+
 
   if (!job) return NextResponse.json({ ok: true, message: "No pending jobs" });
 
@@ -150,10 +162,10 @@ export async function POST(req: NextRequest) {
           (result.riskLevel === "critical" || result.riskLevel === "high");
 
         if (isActionable && (RISK_ORDER[result.riskLevel] ?? 0) > (RISK_ORDER[bestRisk ?? "safe"] ?? 0)) {
-          bestRisk     = result.riskLevel;
-          bestTitle    = result.title;
-          bestSummary  = result.summary;
-          bestEta      = result.etaImpactHours;
+          bestRisk = result.riskLevel;
+          bestTitle = result.title;
+          bestSummary = result.summary;
+          bestEta = result.etaImpactHours;
           bestCategory = result.category;
         }
       }
@@ -185,14 +197,14 @@ export async function POST(req: NextRequest) {
       // ── Notify users whose region/city matches this segment's state ──────
       try {
         await createNotificationsForDisruption({
-          orgId:     job.org_id,
-          routeId:   job.route_id,
+          orgId: job.org_id,
+          routeId: job.route_id,
           segmentId: seg.id,
-          state:     seg.state,
-          title:     bestTitle ?? `Disruption on ${seg.name}`,
-          summary:   bestSummary,
+          state: seg.state,
+          title: bestTitle ?? `Disruption on ${seg.name}`,
+          summary: bestSummary,
           riskLevel: bestRisk,
-          category:  bestCategory,
+          category: bestCategory,
         });
       } catch (err) {
         console.error(`[cron] notification creation failed for ${seg.name}:`, err);
@@ -228,7 +240,7 @@ export async function POST(req: NextRequest) {
 
         // Only store scheduled events that are Critical or High — filter out noise
         if (result.isRelevant && result.eventType === "scheduled" &&
-            (result.riskLevel === "critical" || result.riskLevel === "high")) {
+          (result.riskLevel === "critical" || result.riskLevel === "high")) {
           const eventSrc: EventSource[] = [{
             url: hit.url,
             title: scraped.title || hit.title,
@@ -266,9 +278,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const newDone        = job.segments_done + segments.length;
+  const newDone = job.segments_done + segments.length;
   const newDisruptions = job.disruptions_found + batchDisruptions;
-  const isComplete     = newDone >= job.segments_total;
+  const isComplete = newDone >= job.segments_total;
 
   if (isComplete) {
     await db`
@@ -289,6 +301,22 @@ export async function POST(req: NextRequest) {
     `;
   }
 
+   if (isComplete) {
+    const [route] = await db`
+      SELECT schedule_type, scheduled_date FROM adv_watched_routes 
+      WHERE id = ${job.route_id}
+    `;
+    
+    if (route.schedule_type === 'once') {
+      await db`
+        UPDATE adv_watched_routes
+        SET is_schedule_active = false,
+            last_scheduled_run = now()
+        WHERE id = ${job.route_id}
+      `;
+    }
+  }
+  
   return NextResponse.json({
     ok: true,
     jobId: job.id,
