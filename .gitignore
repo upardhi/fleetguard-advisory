@@ -31,7 +31,6 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
 
 # vercel
 .vercel
@@ -46,4 +45,4 @@ and-app-sample
 ./and-app-sample
 ./android-app
 
-.env
+config.bat

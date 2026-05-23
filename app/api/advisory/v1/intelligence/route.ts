@@ -78,9 +78,9 @@ function advisoryAction(risk: string, segName: string, corridorName: string): st
 type AdvisoryType = Advisory["type"];
 const RISK_TO_TYPE: Record<string, AdvisoryType> = {
   critical: "hold",
-  high:     "reroute",
-  medium:   "delay",
-  low:      "avoid_night",
+  high: "reroute",
+  medium: "delay",
+  low: "avoid_night",
 };
 
 interface SegmentRow {
@@ -132,7 +132,7 @@ export async function GET(req: NextRequest) {
   try { actor = await requireUser(req); }
   catch { return applySecurityHeaders(NextResponse.json({ error: "Unauthorized" }, { status: 401 })); }
 
-  const url      = new URL(req.url);
+  const url = new URL(req.url);
   const regionId = url.searchParams.get("regionId");
 
   // Resolve region states for optional filtering
@@ -198,25 +198,27 @@ export async function GET(req: NextRequest) {
 
     regionStates.length > 0
       ? db`
-          SELECT id, name, origin, destination, max_risk_level,
-                 disruption_count, last_intel_at, routes_fetched, region_id
-          FROM   adv_watched_routes
-          WHERE  org_id = ${actor.org} AND is_active = true
-            AND  (region_id = ${regionId} OR EXISTS (
-              SELECT 1 FROM adv_watched_segments s
-              WHERE s.watched_route_id = adv_watched_routes.id
-                AND s.state = ANY(${db.array(regionStates)})
-              LIMIT 1
-            ))
-          ORDER BY created_at DESC
-        ` as unknown as CorridorRow[]
+        SELECT id, name, origin, destination, max_risk_level,
+               disruption_count, last_intel_at, routes_fetched, region_id,
+               schedule_type, scheduled_date, is_schedule_active, last_scheduled_run
+        FROM   adv_watched_routes
+        WHERE  org_id = ${actor.org} AND is_active = true
+          AND  (region_id = ${regionId} OR EXISTS (
+            SELECT 1 FROM adv_watched_segments s
+            WHERE s.watched_route_id = adv_watched_routes.id
+              AND s.state = ANY(${db.array(regionStates)})
+            LIMIT 1
+          ))
+        ORDER BY created_at DESC
+      `
       : db`
-          SELECT id, name, origin, destination, max_risk_level,
-                 disruption_count, last_intel_at, routes_fetched, region_id
-          FROM   adv_watched_routes
-          WHERE  org_id = ${actor.org} AND is_active = true
-          ORDER  BY created_at DESC
-        ` as unknown as CorridorRow[],
+        SELECT id, name, origin, destination, max_risk_level,
+               disruption_count, last_intel_at, routes_fetched, region_id,
+               schedule_type, scheduled_date, is_schedule_active, last_scheduled_run
+        FROM   adv_watched_routes
+        WHERE  org_id = ${actor.org} AND is_active = true
+        ORDER  BY created_at DESC
+      `,
 
     // Primary route path (variant 0) for each corridor — for map rendering
     db`
@@ -260,14 +262,14 @@ export async function GET(req: NextRequest) {
   // Pass 2 — corridor + state + category catch-all: any two disruptions on
   //   the same corridor, same state, same category are collapsed (highest-risk
   //   entry wins because disruptedRows is ordered by risk DESC already).
-  const seenTitleKeys   = new Set<string>(); // state + title fingerprint
+  const seenTitleKeys = new Set<string>(); // state + title fingerprint
   const seenCorrCatKeys = new Set<string>(); // corridor_id + state + category
 
   const dedupedRows = disruptedRows.filter((seg) => {
     const stateNorm = (seg.state ?? "").toLowerCase();
 
     // Pass 1: fuzzy title fingerprint
-    const fp   = titleFingerprint(seg.disruption_title ?? seg.name);
+    const fp = titleFingerprint(seg.disruption_title ?? seg.name);
     const key1 = `${stateNorm}::${fp}`;
     if (seenTitleKeys.has(key1)) return false;
     seenTitleKeys.add(key1);
