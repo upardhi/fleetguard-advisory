@@ -318,6 +318,12 @@ export default function CorridorsPage() {
                           Assign Region
                         </button>
                         <Link
+                          href={`/advisory/planned/dispatches?corridorId=${corridor.id}`}
+                          className="text-[11px] text-brand-600 font-semibold hover:underline px-2 py-1"
+                        >
+                          Trips
+                        </Link>
+                        <Link
                           href={`/advisory/planner?corridorId=${corridor.id}`}
                           className="text-[11px] text-brand-600 font-semibold hover:underline px-2 py-1"
                         >

@@ -314,7 +314,7 @@ export default function TripDetailPage() {
           </div>
 
           {/* Additional Notes */}
-          {dispatch.notes && (
+          {/* {dispatch.notes && (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100">
                 <div className="flex items-center gap-2">
@@ -328,7 +328,7 @@ export default function TripDetailPage() {
                 </pre>
               </div>
             </div>
-          )}
+          )} */}
         </div>
       </div>
     </div>

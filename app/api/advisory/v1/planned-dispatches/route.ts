@@ -10,18 +10,38 @@ import { applySecurityHeaders } from "@/app/_server/security/headers";
 export async function GET(req: NextRequest) {
   try {
     const claims = await requireUser(req);
+    const url = new URL(req.url);
+    const watchedRouteId = url.searchParams.get("watchedRouteId");
     
-    const rows = await db`
-      SELECT 
-        pd.*,
-        wr.name as corridor_name,
-        wr.max_risk_level as corridor_risk,
-        wr.disruption_count as corridor_disruptions
-      FROM adv_planned_dispatches pd
-      JOIN adv_watched_routes wr ON wr.id = pd.watched_route_id
-      WHERE pd.org_id = ${claims.org}
-      ORDER BY pd.created_at DESC
-    `;
+    let rows;
+    if (watchedRouteId) {
+      // Filter by specific watched route
+      rows = await db`
+        SELECT 
+          pd.*,
+          wr.name as corridor_name,
+          wr.max_risk_level as corridor_risk,
+          wr.disruption_count as corridor_disruptions
+        FROM adv_planned_dispatches pd
+        JOIN adv_watched_routes wr ON wr.id = pd.watched_route_id
+        WHERE pd.org_id = ${claims.org}
+          AND pd.watched_route_id = ${watchedRouteId}
+        ORDER BY pd.created_at DESC
+      `;
+    } else {
+      // Get all dispatches
+      rows = await db`
+        SELECT 
+          pd.*,
+          wr.name as corridor_name,
+          wr.max_risk_level as corridor_risk,
+          wr.disruption_count as corridor_disruptions
+        FROM adv_planned_dispatches pd
+        JOIN adv_watched_routes wr ON wr.id = pd.watched_route_id
+        WHERE pd.org_id = ${claims.org}
+        ORDER BY pd.created_at DESC
+      `;
+    }
     
     return applySecurityHeaders(NextResponse.json({ plannedDispatches: rows }));
   } catch (err: unknown) {
