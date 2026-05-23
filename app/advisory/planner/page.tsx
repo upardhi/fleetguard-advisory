@@ -18,27 +18,27 @@ import type { DispatchPlan, RiskLevel, AlternativeRoute } from "@/app/_lib/types
 function riskColor(r: RiskLevel) {
   return {
     critical: "text-red-700 bg-red-50 border-red-200",
-    high:     "text-orange-700 bg-orange-50 border-orange-200",
-    medium:   "text-yellow-700 bg-yellow-50 border-yellow-200",
-    low:      "text-blue-700 bg-blue-50 border-blue-200",
-    safe:     "text-green-700 bg-green-50 border-green-200",
+    high: "text-orange-700 bg-orange-50 border-orange-200",
+    medium: "text-yellow-700 bg-yellow-50 border-yellow-200",
+    low: "text-blue-700 bg-blue-50 border-blue-200",
+    safe: "text-green-700 bg-green-50 border-green-200",
   }[r];
 }
 
 function riskGauge(score: number) {
   if (score >= 80) return { label: "Critical", color: "#dc2626", bg: "#fee2e2" };
-  if (score >= 60) return { label: "High",     color: "#ea580c", bg: "#fff7ed" };
-  if (score >= 40) return { label: "Medium",   color: "#ca8a04", bg: "#fefce8" };
-  if (score >= 20) return { label: "Low",      color: "#2563eb", bg: "#eff6ff" };
-  return                 { label: "Safe",      color: "#16a34a", bg: "#f0fdf4" };
+  if (score >= 60) return { label: "High", color: "#ea580c", bg: "#fff7ed" };
+  if (score >= 40) return { label: "Medium", color: "#ca8a04", bg: "#fefce8" };
+  if (score >= 20) return { label: "Low", color: "#2563eb", bg: "#eff6ff" };
+  return { label: "Safe", color: "#16a34a", bg: "#f0fdf4" };
 }
 
 const REC_CONFIG = {
-  dispatch:       { label: "Dispatch as planned",   icon: CheckCircle2, cls: "text-green-700 bg-green-50 border-green-200" },
-  delay:          { label: "Delay recommended",     icon: Clock,         cls: "text-yellow-700 bg-yellow-50 border-yellow-200" },
-  reroute:        { label: "Reroute required",      icon: TrendingUp,    cls: "text-orange-700 bg-orange-50 border-orange-200" },
-  hold:           { label: "Hold — do not dispatch",icon: AlertTriangle, cls: "text-red-700 bg-red-50 border-red-200" },
-  dispatch_early: { label: "Dispatch early",        icon: Navigation,    cls: "text-blue-700 bg-blue-50 border-blue-200" },
+  dispatch: { label: "Dispatch as planned", icon: CheckCircle2, cls: "text-green-700 bg-green-50 border-green-200" },
+  delay: { label: "Delay recommended", icon: Clock, cls: "text-yellow-700 bg-yellow-50 border-yellow-200" },
+  reroute: { label: "Reroute required", icon: TrendingUp, cls: "text-orange-700 bg-orange-50 border-orange-200" },
+  hold: { label: "Hold — do not dispatch", icon: AlertTriangle, cls: "text-red-700 bg-red-50 border-red-200" },
+  dispatch_early: { label: "Dispatch early", icon: Navigation, cls: "text-blue-700 bg-blue-50 border-blue-200" },
 };
 
 // ── Corridor analysis engine (mock intelligence) ─────────────────
@@ -77,7 +77,7 @@ function analyzeRoute(origin: string, destination: string, _date: string, _time:
 
   const now = new Date();
   const safeFrom = new Date(now.getTime() + (totalImpact + 4) * 3600000).toISOString();
-  const safeTo   = new Date(now.getTime() + (totalImpact + 14) * 3600000).toISOString();
+  const safeTo = new Date(now.getTime() + (totalImpact + 14) * 3600000).toISOString();
 
   let recommendation: DispatchPlan["recommendation"] = "dispatch";
   if (score >= 80) recommendation = "hold";
@@ -127,6 +127,75 @@ function analyzeRoute(origin: string, destination: string, _date: string, _time:
     alternativeRoutes: alts,
     aiNarrative,
   };
+}
+
+function CitySelect({
+  label,
+  value,
+  onChange,
+  exclude,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  exclude?: string;
+}) {
+  const isCustom = value !== "" && !MAJOR_CITIES.includes(value);
+  const [mode, setMode] = useState<"list" | "custom">(isCustom ? "custom" : "list");
+  const [customVal, setCustomVal] = useState(isCustom ? value : "");
+
+  function handleSelectChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const v = e.target.value;
+    if (v === "__custom__") {
+      setMode("custom");
+      onChange(""); // clear until user types
+    } else {
+      setMode("list");
+      onChange(v);
+    }
+  }
+
+  function handleCustomChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setCustomVal(e.target.value);
+    onChange(e.target.value);
+  }
+
+  return (
+    <Field label={label}>
+      {mode === "list" ? (
+        <select
+          value={value}
+          onChange={handleSelectChange}
+          className={selectCls}
+        >
+          <option value="">Select city…</option>
+           <option value="__custom__">＋ Add custom city…</option>
+          {MAJOR_CITIES.filter((c) => c !== exclude).map((c) => (
+            <option key={c}>{c}</option>
+          ))}
+         
+        </select>
+      ) : (
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={customVal}
+            onChange={handleCustomChange}
+            autoFocus
+            placeholder="Type city name…"
+            className={inputCls + " flex-1"}
+          />
+          <button
+            type="button"
+            onClick={() => { setMode("list"); setCustomVal(""); onChange(""); }}
+            className="px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 transition"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+    </Field>
+  );
 }
 
 // ── Page ─────────────────────────────────────────────────────────
@@ -194,18 +263,17 @@ export default function DispatchPlannerPage() {
             </div>
             <div className="p-6">
               <div className="grid sm:grid-cols-2 gap-4">
-                <Field label="Origin City *">
-                  <select value={form.origin} onChange={(e) => set("origin", e.target.value)} className={selectCls}>
-                    <option value="">Select origin…</option>
-                    {MAJOR_CITIES.map((c) => <option key={c}>{c}</option>)}
-                  </select>
-                </Field>
-                <Field label="Destination City *">
-                  <select value={form.destination} onChange={(e) => set("destination", e.target.value)} className={selectCls}>
-                    <option value="">Select destination…</option>
-                    {MAJOR_CITIES.filter((c) => c !== form.origin).map((c) => <option key={c}>{c}</option>)}
-                  </select>
-                </Field>
+                <CitySelect
+                  label="Origin City *"
+                  value={form.origin}
+                  onChange={(v) => set("origin", v)}
+                />
+                <CitySelect
+                  label="Destination City *"
+                  value={form.destination}
+                  onChange={(v) => set("destination", v)}
+                  exclude={form.origin}
+                />
                 <Field label="Vehicle Type *">
                   <select value={form.vehicleType} onChange={(e) => set("vehicleType", e.target.value)} className={selectCls}>
                     <option value="">Select vehicle…</option>
@@ -411,4 +479,4 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const selectCls = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-300";
-const inputCls  = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-300";
+const inputCls = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-300";
