@@ -24,7 +24,8 @@
     "analyze:docufast": "tsx scripts/analyze-docu-fast.ts",
     "test:migrate10": "tsx scripts/test-migrate-10.ts",
     "migrate:regions": "tsx --env-file=.env.local scripts/migrate-advisory-regions.ts",
-    "cleanup:corridors": "tsx --env-file=.env.local scripts/cleanup-corridor-data.ts"
+    "cleanup:corridors": "tsx --env-file=.env.local scripts/cleanup-corridor-data.ts",
+    "update:city-coords": "tsx --env-file=.env.local scripts/update-all-city-coords.ts"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.21",

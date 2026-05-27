@@ -5,7 +5,11 @@ import { applySecurityHeaders } from "@/app/_server/security/headers";
 
 const GEOFENCE_RADIUS_KM = 40;
 
-// Haversine distance in km
+const RISK_ORDER: Record<string, number> = {
+  critical: 5, high: 4, medium: 3, low: 2, safe: 1,
+};
+
+// Haversine distance in km between two lat/lng points
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -18,97 +22,121 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// EAST region depot city coordinates (used when DB has no lat/lng yet)
-const EAST_CITY_COORDS: Record<string, { lat: number; lng: number }> = {
-  "Agartala":       { lat: 23.8315, lng: 91.2868 },
-  "Andal":          { lat: 23.6060, lng: 87.2011 },
-  "Chandaka":       { lat: 20.3372, lng: 85.7380 },
-  "Cuttack":        { lat: 20.4625, lng: 85.8828 },
-  "Dhulagarh New":  { lat: 22.5448, lng: 88.2356 },
-  "Jamshedpur New": { lat: 22.8046, lng: 86.2029 },
-  "Jorhat":         { lat: 26.7500, lng: 94.2167 },
-  "Madanpur":       { lat: 22.4177, lng: 88.3668 },
-  "Panchla New":    { lat: 22.4845, lng: 88.1567 },
-  "Patna":          { lat: 25.5941, lng: 85.1376 },
-  "Sambalpur":      { lat: 21.4669, lng: 83.9756 },
-  "Siliguri New":   { lat: 26.7271, lng: 88.3953 },
-  "Vijayawada PC":  { lat: 16.5062, lng: 80.6480 },
-  "Vizag 2":        { lat: 17.6868, lng: 83.2185 },
-};
-
-const RISK_ORDER: Record<string, number> = {
-  critical: 5, high: 4, medium: 3, low: 2, safe: 1,
-};
+function stateMatches(a: string, b: string): boolean {
+  const al = a.toLowerCase().trim();
+  const bl = b.toLowerCase().trim();
+  return al.includes(bl) || bl.includes(al);
+}
 
 // GET /api/advisory/v1/warehouse-geofence
-// Returns each warehouse with EAST cities within 40 km and active disruptions in those states.
+// For each active warehouse, returns:
+//   - All depot cities within 40 km (across all regions, using DB lat/lng)
+//   - Active disruptions in those states (from adv_disruptions + adv_watched_segments)
 export async function GET(req: NextRequest) {
   let actor;
   try { actor = await requireUser(req); }
   catch { return applySecurityHeaders(NextResponse.json({ error: "Unauthorized" }, { status: 401 })); }
 
-  // All active warehouses for the org
+  // ── 1. All active warehouses ──────────────────────────────────────────────
   const warehouses = await db`
     SELECT id, name, city, state, lat, lng
     FROM   warehouses
-    WHERE  org_id = ${actor.org} AND is_active = TRUE
+    WHERE  org_id    = ${actor.org}
+      AND  is_active = TRUE
     ORDER  BY name ASC
   ` as { id: string; name: string; city: string; state: string; lat: number | null; lng: number | null }[];
 
-  // EAST cities from DB — fall back to hardcoded coords if DB has no lat/lng
+  // ── 2. All depot cities across all regions (now all have lat/lng) ─────────
   const dbCities = await db`
-    SELECT name, state, lat, lng
-    FROM   adv_cities
-    WHERE  org_id = ${actor.org} AND region_id = 'east'
-    ORDER  BY name ASC
-  ` as { name: string; state: string | null; lat: number | null; lng: number | null }[];
+    SELECT c.name, c.state, c.lat, c.lng, c.region_id, r.label AS region_label, r.color AS region_color
+    FROM   adv_cities  c
+    JOIN   adv_regions r ON r.id = c.region_id
+    WHERE  c.org_id = ${actor.org}
+      AND  c.lat    IS NOT NULL
+      AND  c.lng    IS NOT NULL
+    ORDER  BY c.name ASC
+  ` as { name: string; state: string | null; lat: number; lng: number; region_id: string; region_label: string; region_color: string }[];
 
-  const cities = dbCities
-    .map((c) => {
-      const coords = EAST_CITY_COORDS[c.name];
-      return {
-        name:  c.name,
-        state: c.state ?? "",
-        lat:   c.lat ?? coords?.lat ?? null,
-        lng:   c.lng ?? coords?.lng ?? null,
-      };
-    })
-    .filter((c): c is typeof c & { lat: number; lng: number } =>
-      c.lat !== null && c.lng !== null,
-    );
-
-  // If no DB cities yet (first run), fall back to hardcoded list
-  const effectiveCities =
-    cities.length > 0
-      ? cities
-      : Object.entries(EAST_CITY_COORDS).map(([name, coords]) => ({
-          name,
-          state: "",
-          ...coords,
-        }));
-
-  // Active disruptions via watched segments (36 h freshness window)
-  const segments = await db`
-    SELECT DISTINCT s.state, s.disruption_risk_level, s.disruption_title, s.disruption_category
-    FROM   adv_watched_segments s
-    JOIN   adv_watched_routes   r ON r.id = s.watched_route_id
-    WHERE  r.org_id          = ${actor.org}
-      AND  r.is_active        = TRUE
-      AND  s.has_disruption   = TRUE
-      AND  s.disruption_risk_level IN ('critical', 'high', 'medium')
-      AND  s.last_checked_at >= now() - interval '36 hours'
+  // ── 3a. Disruptions from adv_disruptions (direct, state-based) ───────────
+  //   is_active = true means the disruption is current.
+  //   36-hour fallback: if is_active flag isn't reliable, also include recent ones.
+  const directDisruptions = await db`
+    SELECT id, category, title, summary, risk_level, state,
+           affected_location, affected_highway, eta_impact_hours, starts_at
+    FROM   adv_disruptions
+    WHERE  is_active = TRUE
+       OR  created_at >= now() - interval '36 hours'
+    ORDER  BY created_at DESC
   ` as {
+    id: string;
+    category: string | null;
+    title: string;
+    summary: string | null;
+    risk_level: string;
     state: string | null;
-    disruption_risk_level: string;
-    disruption_title: string | null;
-    disruption_category: string | null;
+    affected_location: string | null;
+    affected_highway: string | null;
+    eta_impact_hours: number | null;
+    starts_at: string | null;
   }[];
 
-  function stateMatches(a: string, b: string): boolean {
-    const al = a.toLowerCase(), bl = b.toLowerCase();
-    return al.includes(bl) || bl.includes(al);
-  }
+  // ── 3b. Disruptions from corridor segments (legacy, still useful if corridors exist) ─
+  const segmentDisruptions = await db`
+    SELECT DISTINCT s.state, s.disruption_risk_level AS risk_level,
+                    s.disruption_title              AS title,
+                    s.disruption_category           AS category,
+                    NULL::text                      AS summary,
+                    NULL::text                      AS affected_highway
+    FROM   adv_watched_segments s
+    JOIN   adv_watched_routes   r ON r.id = s.watched_route_id
+    WHERE  r.org_id                  = ${actor.org}
+      AND  r.is_active                = TRUE
+      AND  s.has_disruption           = TRUE
+      AND  s.disruption_risk_level   IN ('critical', 'high', 'medium')
+      AND  s.last_checked_at         >= now() - interval '36 hours'
+  ` as {
+    state: string | null;
+    risk_level: string;
+    title: string | null;
+    category: string | null;
+    summary: string | null;
+    affected_highway: string | null;
+  }[];
 
+  // Normalise both sources into a single shape
+  type NormDisruption = {
+    title: string;
+    riskLevel: string;
+    state: string;
+    category: string;
+    summary: string | null;
+    highway: string | null;
+  };
+
+  const allDisruptions: NormDisruption[] = [
+    ...directDisruptions
+      .filter((d) => d.state)
+      .map((d) => ({
+        title:     d.title,
+        riskLevel: d.risk_level,
+        state:     d.state!,
+        category:  d.category ?? "traffic",
+        summary:   d.summary ?? null,
+        highway:   d.affected_highway ?? null,
+      })),
+    ...segmentDisruptions
+      .filter((s) => s.state)
+      .map((s) => ({
+        title:     s.title ?? "Disruption",
+        riskLevel: s.risk_level,
+        state:     s.state!,
+        category:  s.category ?? "traffic",
+        summary:   s.summary ?? null,
+        highway:   s.affected_highway ?? null,
+      })),
+  ];
+
+  // ── 4. Build per-warehouse geofences ─────────────────────────────────────
   const result = warehouses.map((wh) => {
     if (wh.lat === null || wh.lng === null) {
       return {
@@ -118,52 +146,74 @@ export async function GET(req: NextRequest) {
       };
     }
 
+    const whLat = Number(wh.lat);
+    const whLng = Number(wh.lng);
+
     // Cities within GEOFENCE_RADIUS_KM
-    const nearbyCities = effectiveCities
+    const nearbyCities = dbCities
       .map((c) => ({
-        ...c,
-        distanceKm: Math.round(haversineKm(wh.lat!, wh.lng!, c.lat, c.lng)),
+        name:         c.name,
+        state:        c.state ?? "",
+        lat:          c.lat,
+        lng:          c.lng,
+        regionId:     c.region_id,
+        regionLabel:  c.region_label,
+        regionColor:  c.region_color,
+        distanceKm:   Math.round(haversineKm(whLat, whLng, c.lat, c.lng)),
       }))
       .filter((c) => c.distanceKm <= GEOFENCE_RADIUS_KM)
       .sort((a, b) => a.distanceKm - b.distanceKm);
 
-    // States covered by the geofence (warehouse state + nearby city states)
+    // States covered: warehouse state + all nearby city states
     const nearbyStates = new Set<string>();
     if (wh.state) nearbyStates.add(wh.state);
     nearbyCities.forEach((c) => { if (c.state) nearbyStates.add(c.state); });
 
-    // Disruptions whose state overlaps the geofence
-    const nearbyDisruptions = segments
-      .filter((s) => {
-        if (!s.state) return false;
-        for (const st of nearbyStates) {
-          if (stateMatches(s.state, st)) return true;
-        }
-        return false;
-      })
-      .map((s) => ({
-        title:    s.disruption_title ?? "Disruption",
-        riskLevel: s.disruption_risk_level,
-        state:    s.state ?? "",
-        category: s.disruption_category ?? "traffic",
-      }));
+    // Disruptions whose state intersects the geofence
+    const nearbyDisruptions = allDisruptions.filter((d) => {
+      for (const st of nearbyStates) {
+        if (stateMatches(d.state, st)) return true;
+      }
+      return false;
+    });
 
-    const worstRisk = nearbyDisruptions.reduce(
-      (best, d) =>
-        (RISK_ORDER[d.riskLevel] ?? 0) > (RISK_ORDER[best] ?? 0) ? d.riskLevel : best,
+    // Deduplicate by title
+    const seen = new Set<string>();
+    const deduped = nearbyDisruptions.filter((d) => {
+      const key = d.title.toLowerCase().slice(0, 50);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    const worstRisk = deduped.reduce(
+      (best, d) => (RISK_ORDER[d.riskLevel] ?? 0) > (RISK_ORDER[best] ?? 0) ? d.riskLevel : best,
       "safe" as string,
     );
 
     return {
       id: wh.id, name: wh.name, city: wh.city, state: wh.state,
-      lat: wh.lat, lng: wh.lng,
+      lat: whLat, lng: whLng,
       nearbyCities,
-      nearbyDisruptions,
+      nearbyDisruptions: deduped,
       worstRisk,
     };
   });
 
+  // Summary stats
+  const totalCitiesInZone = new Set(result.flatMap((w) => w.nearbyCities.map((c) => c.name))).size;
+  const totalDisruptions  = new Set(result.flatMap((w) => w.nearbyDisruptions.map((d) => d.title))).size;
+
   return applySecurityHeaders(
-    NextResponse.json({ warehouses: result, geofenceRadiusKm: GEOFENCE_RADIUS_KM }),
+    NextResponse.json({
+      warehouses: result,
+      geofenceRadiusKm: GEOFENCE_RADIUS_KM,
+      summary: {
+        warehouseCount:       result.length,
+        warehousesWithCoords: result.filter((w) => w.lat !== null).length,
+        totalCitiesInZone,
+        totalDisruptions,
+      },
+    }),
   );
 }
