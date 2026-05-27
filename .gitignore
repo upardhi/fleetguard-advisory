@@ -46,3 +46,4 @@ and-app-sample
 ./android-app
 
 config.bat
+.env
