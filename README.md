@@ -5,6 +5,7 @@ Warehouse gate-management platform built on **Next.js 16 (App Router)** + **Supa
 ---              
 
   
+
  
   
 ## Table of Contents
