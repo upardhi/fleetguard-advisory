@@ -58,7 +58,22 @@ interface CorridorRow {
   max_risk_level: string | null; disruption_count: number;
   last_intel_at: string | null; routes_fetched: boolean; region_id: string | null;
 }
-interface CityRow { id: string; name: string; state: string | null; is_depot: boolean }
+interface CityRow {
+  id: string;
+  name: string;
+  state: string | null;
+  is_depot: boolean;
+  // new fields from adv_city_news
+  has_disruption?: boolean;
+  disruption_risk_level?: string | null;
+  disruption_title?: string | null;
+  disruption_summary?: string | null;
+  disruption_eta_hours?: number | null;
+  disruption_category?: string | null;
+  disruption_sources?: EventSource[] | null;
+  last_checked_at?: string | null;
+}
+
 interface TeamMember { id: string; full_name: string; email: string; role: string; city_name: string | null }
 interface RegionDetail {
   region: { id: string; label: string; color: string; states: string[] };
@@ -107,8 +122,8 @@ function TabBtn({ id, label, icon: Icon, count, active, onClick }: {
     <button
       onClick={onClick}
       className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12.5px] font-semibold transition-all whitespace-nowrap ${active
-          ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
-          : "text-slate-500 hover:text-slate-700 hover:bg-white/60"
+        ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
+        : "text-slate-500 hover:text-slate-700 hover:bg-white/60"
         }`}
     >
       <Icon size={13} />
@@ -161,8 +176,8 @@ function DisruptionItem({ d, showRoute = true }: { d: SegmentDisruption; showRou
             {d.lastCheckedAt && (
               <span
                 className={`text-[10px] px-2 py-0.5 rounded-full ${Date.now() - new Date(d.lastCheckedAt).getTime() > 20 * 3600 * 1000
-                    ? "bg-amber-50 text-amber-600 border border-amber-200"
-                    : "bg-slate-100 text-slate-400"
+                  ? "bg-amber-50 text-amber-600 border border-amber-200"
+                  : "bg-slate-100 text-slate-400"
                   }`}
                 title={`Scanned: ${fmtDate(d.lastCheckedAt)}`}
               >
@@ -207,21 +222,17 @@ function CitiesTab({
   // Flat list of ALL disruptions across all states in this region
   const allDisps = useMemo(() => stateGroups.flatMap((g) => g.disruptions), [stateGroups]);
 
+  const corridorDisps = useMemo(() => stateGroups.flatMap((g) => g.disruptions), [stateGroups]);
+
   const cityView = useMemo(() => cities.map((city) => {
     const cityLower = city.name.toLowerCase().trim();
 
-    // Corridors that serve this city (origin or destination contains city name)
     const corrs = corridors.filter((c) =>
       `${c.origin} ${c.destination} ${c.name}`.toLowerCase().includes(cityLower)
     );
     const servingRouteIds = new Set(corrs.map((c) => c.id));
 
-    // Match a disruption to this city if:
-    // 1. It is on a corridor that serves this city (origin/destination match)
-    // 2. The segment name is geographically near the city (name contains city or vice versa)
-    // 3. The disruption title or summary explicitly mentions the city by name
-    // This prevents Bangalore rain from bleeding into Dabaspet / Hubli cards.
-    const disps = allDisps.filter((d) => {
+    const corridorMatched = corridorDisps.filter((d) => {
       if (d.riskLevel !== "critical" && d.riskLevel !== "high") return false;
       const segLow = d.segmentName.toLowerCase();
       const titLow = d.title.toLowerCase();
@@ -233,8 +244,34 @@ function CitiesTab({
     });
 
     const team = teamMembers.filter((m) => m.city_name === city.name);
-    return { city, disps, corrs, team };
-  }), [cities, allDisps, corridors, teamMembers]);
+
+    // City-level direct news from adv_city_news
+    const cityNewsDisp: SegmentDisruption[] = [];
+    if (city.has_disruption && city.disruption_risk_level) {
+      cityNewsDisp.push({
+        id: `city-${city.id}`,
+        segmentName: city.name,
+        title: city.disruption_title ?? `Disruption in ${city.name}`,
+        summary: city.disruption_summary ?? "",
+        riskLevel: city.disruption_risk_level as RiskLevel,
+        etaImpactHours: city.disruption_eta_hours ?? 0,
+        category: (city.disruption_category ?? "traffic") as DisruptionCategory,
+        routeId: "",
+        routeName: "",
+        lastCheckedAt: city.last_checked_at ?? null,
+        firstSeenAt: null,
+        sources: Array.isArray(city.disruption_sources) ? city.disruption_sources : [],
+      });
+    }
+
+    // Merge city news + corridor disruptions, deduplicate by title
+    const mergedDisps = [...cityNewsDisp, ...corridorMatched].filter((d, i, arr) =>
+      arr.findIndex((x) => x.title === d.title) === i
+    );
+
+    return { city, disps: mergedDisps, corrs, team };
+  }), [cities, corridorDisps, corridors, teamMembers]);
+
 
   const filtered = useMemo(() => {
     let list = cityView;

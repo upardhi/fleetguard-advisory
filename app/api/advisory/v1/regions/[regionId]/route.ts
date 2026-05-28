@@ -31,10 +31,23 @@ export async function GET(
 
   // Load depot cities for this region
   const cities = await db`
-    SELECT id, name, state, is_depot FROM adv_cities
-    WHERE org_id = ${actor.org} AND region_id = ${regionId}
-    ORDER BY name
-  ` as { id: string; name: string; state: string | null; is_depot: boolean }[];
+  SELECT 
+    c.id, c.name, c.state, c.is_depot,
+    cn.has_disruption,
+    cn.disruption_risk_level,
+    cn.disruption_title,
+    cn.disruption_summary,
+    cn.disruption_eta_hours,
+    cn.disruption_category,
+    cn.disruption_sources,
+    cn.last_checked_at
+  FROM adv_cities c
+  LEFT JOIN adv_city_news cn ON cn.city_id = c.id
+  WHERE c.org_id = ${actor.org} AND c.region_id = ${regionId}
+  ORDER BY c.name
+`
+
+
 
   // Load corridors in this region (both region_id-tagged and state-matched)
   const corridors = await db`
@@ -104,12 +117,12 @@ export async function GET(
       .join(" ");
   }
 
-  const seenTitleKeys   = new Set<string>();
+  const seenTitleKeys = new Set<string>();
   const seenCorrCatKeys = new Set<string>();
   const dedupedSegs = segments.filter((s) => {
     const stateNorm = (s.state ?? "").toLowerCase();
 
-    const fp   = titleFingerprint(s.disruption_title ?? s.segment_name);
+    const fp = titleFingerprint(s.disruption_title ?? s.segment_name);
     const key1 = `${stateNorm}::${fp}`;
     if (seenTitleKeys.has(key1)) return false;
     seenTitleKeys.add(key1);
