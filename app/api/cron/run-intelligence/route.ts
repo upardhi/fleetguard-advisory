@@ -60,30 +60,30 @@ export async function POST(req: NextRequest) {
   }
 
   // Atomically claim the oldest pending or in-progress job
-  const [job] = (await db`
-    UPDATE adv_intel_jobs
-    SET    status     = 'running',
-           started_at = COALESCE(started_at, now())
-    WHERE  id = (
-      SELECT j.id 
-      FROM adv_intel_jobs j
-      JOIN adv_watched_routes r ON r.id = j.route_id
-      WHERE j.status IN ('pending', 'running')
-        AND r.is_schedule_active = true
-        AND (
-          r.schedule_type = 'daily'
-          OR (
-            r.schedule_type = 'once' 
-            AND r.scheduled_date <= CURRENT_DATE
-            AND (r.last_scheduled_run IS NULL OR r.last_scheduled_run::date < CURRENT_DATE)
-          )
+ const [job] = (await db`
+  UPDATE adv_intel_jobs
+  SET    status     = 'running',
+         started_at = COALESCE(started_at, now())
+  WHERE  id = (
+    SELECT j.id 
+    FROM adv_intel_jobs j
+    JOIN adv_watched_routes r ON r.id = j.route_id
+    WHERE j.status IN ('pending', 'running')
+      AND r.is_schedule_active = true
+      AND (
+        r.schedule_type = 'daily'
+        OR (
+          r.schedule_type = 'once' 
+          AND r.scheduled_date <= CURRENT_DATE
+          AND (r.last_scheduled_run IS NULL OR r.last_scheduled_run::date < CURRENT_DATE)
         )
-      ORDER BY j.created_at ASC
-      LIMIT 1
-      FOR UPDATE SKIP LOCKED
-    )
-    RETURNING j.id, j.route_id, j.org_id, j.segments_total, j.segments_done, j.disruptions_found
-  `) as unknown as Job[];
+      )
+    ORDER BY j.created_at ASC
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+  )
+  RETURNING id, route_id, org_id, segments_total, segments_done, disruptions_found
+`) as unknown as Job[];
 
 
   if (!job) return NextResponse.json({ ok: true, message: "No pending jobs" });

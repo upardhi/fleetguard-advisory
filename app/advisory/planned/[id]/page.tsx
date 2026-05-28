@@ -52,20 +52,20 @@ const RISK_ORDER: Record<string, number> = { critical: 5, high: 4, medium: 3, lo
 function riskBadgeCls(r: RiskLevel): string {
   return {
     critical: "bg-red-50 text-red-700 border-red-200",
-    high:     "bg-orange-50 text-orange-700 border-orange-200",
-    medium:   "bg-yellow-50 text-yellow-700 border-yellow-200",
-    low:      "bg-blue-50 text-blue-700 border-blue-200",
-    safe:     "bg-green-50 text-green-700 border-green-200",
+    high: "bg-orange-50 text-orange-700 border-orange-200",
+    medium: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    low: "bg-blue-50 text-blue-700 border-blue-200",
+    safe: "bg-green-50 text-green-700 border-green-200",
   }[r] ?? "bg-green-50 text-green-700 border-green-200";
 }
 
 function riskDotCls(r: RiskLevel): string {
   return {
     critical: "bg-red-500",
-    high:     "bg-orange-500",
-    medium:   "bg-yellow-500",
-    low:      "bg-blue-400",
-    safe:     "bg-green-500",
+    high: "bg-orange-500",
+    medium: "bg-yellow-500",
+    low: "bg-blue-400",
+    safe: "bg-green-500",
   }[r] ?? "bg-green-500";
 }
 
@@ -73,10 +73,10 @@ function riskStripCls(r: RiskLevel | null): string {
   if (!r) return "bg-green-400";
   return {
     critical: "bg-red-500",
-    high:     "bg-orange-500",
-    medium:   "bg-yellow-400",
-    low:      "bg-blue-400",
-    safe:     "bg-green-400",
+    high: "bg-orange-500",
+    medium: "bg-yellow-400",
+    low: "bg-blue-400",
+    safe: "bg-green-400",
   }[r] ?? "bg-green-400";
 }
 
@@ -89,9 +89,9 @@ function segmentIcon(type: WatchedSegment["segment_type"]): string {
 function typeLabel(type: WatchedSegment["segment_type"]): string {
   return {
     national_highway: "National Highway",
-    state_highway:    "State Highway",
-    district:         "District",
-    tehsil:           "Tehsil",
+    state_highway: "State Highway",
+    district: "District",
+    tehsil: "Tehsil",
   }[type];
 }
 
@@ -150,18 +150,17 @@ function RiskStrip({ segments }: { segments: WatchedSegment[] }) {
             key={s.id}
             title={`${s.name}${s.has_disruption ? ` — ${s.disruption_risk_level?.toUpperCase()}` : " — Clear"}`}
             style={{ flex: 1 }}
-            className={`transition-opacity hover:opacity-80 cursor-default ${
-              s.has_disruption ? riskStripCls(s.disruption_risk_level) : "bg-green-400"
-            }`}
+            className={`transition-opacity hover:opacity-80 cursor-default ${s.has_disruption ? riskStripCls(s.disruption_risk_level) : "bg-green-400"
+              }`}
           />
         ))}
       </div>
       <div className="flex items-center gap-4 mt-2">
         {[
-          { cls: "bg-red-500",    label: "Critical" },
+          { cls: "bg-red-500", label: "Critical" },
           { cls: "bg-orange-500", label: "High" },
           { cls: "bg-yellow-400", label: "Medium" },
-          { cls: "bg-green-400",  label: "Clear" },
+          { cls: "bg-green-400", label: "Clear" },
         ].map(({ cls, label }) => (
           <span key={label} className="flex items-center gap-1 text-[10px] text-slate-500">
             <span className={`w-2.5 h-2.5 rounded-sm ${cls}`} />{label}
@@ -185,9 +184,8 @@ function SegmentRow({
   return (
     <div
       onClick={onClick}
-      className={`px-5 py-3.5 flex items-start gap-3 cursor-pointer transition-colors hover:bg-slate-50 ${
-        isSelected ? "bg-brand-50/60 border-l-2 border-brand-500" : ""
-      } ${seg.has_disruption ? "bg-red-50/30" : ""}`}
+      className={`px-5 py-3.5 flex items-start gap-3 cursor-pointer transition-colors hover:bg-slate-50 ${isSelected ? "bg-brand-50/60 border-l-2 border-brand-500" : ""
+        } ${seg.has_disruption ? "bg-red-50/30" : ""}`}
     >
       <div className="text-lg shrink-0 mt-0.5">{segmentIcon(seg.segment_type)}</div>
       <div className="flex-1 min-w-0">
@@ -646,6 +644,97 @@ function AltRecommendation({
   );
 }
 
+function CityNewsCard({ seg }: { seg: WatchedSegment }) {
+  const [open, setOpen] = useState(false);
+  const isDisrupted = seg.has_disruption && seg.disruption_risk_level;
+
+  return (
+    <div className={`border rounded-xl overflow-hidden transition-all ${isDisrupted ? "border-red-200 bg-red-50/30" : "border-slate-200 bg-white"
+      }`}>
+      {/* Header — always visible, click to expand */}
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-slate-50 transition-colors"
+      >
+        <span className="text-base">🏙️</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-sm text-slate-800">{seg.name}</span>
+            {seg.state && (
+              <span className="text-[10px] text-slate-400">{seg.state}</span>
+            )}
+            {/* Status pill */}
+            {isDisrupted ? (
+              <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase ${riskBadgeCls(seg.disruption_risk_level!)}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${riskDotCls(seg.disruption_risk_level!)}`} />
+                {seg.disruption_risk_level}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+                <CheckCircle2 size={9} /> Clear
+              </span>
+            )}
+          </div>
+          {/* Preview line when collapsed */}
+          {!open && isDisrupted && seg.disruption_title && (
+            <p className="text-xs text-slate-500 truncate mt-0.5">{seg.disruption_title}</p>
+          )}
+        </div>
+        <ChevronRight
+          size={14}
+          className={`text-slate-400 shrink-0 transition-transform ${open ? "rotate-90" : ""}`}
+        />
+      </button>
+
+      {/* Expanded content */}
+      {open && (
+        <div className="px-4 pb-4 pt-1 border-t border-slate-100 space-y-3">
+          {isDisrupted ? (
+            <>
+              {seg.disruption_title && (
+                <div>
+                  <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1">
+                    Disruption
+                  </div>
+                  <p className="text-xs font-semibold text-slate-800">{seg.disruption_title}</p>
+                </div>
+              )}
+              {seg.disruption_summary && (
+                <div>
+                  <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1">
+                    Summary
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 rounded-lg p-3 border border-slate-100">
+                    {seg.disruption_summary}
+                  </p>
+                </div>
+              )}
+              <div className="flex items-center gap-4 text-[10px] text-slate-400 flex-wrap">
+                {(seg.disruption_eta_hours ?? 0) > 0 && (
+                  <span className="flex items-center gap-1 text-orange-600 font-semibold">
+                    <Clock size={10} /> +{seg.disruption_eta_hours}h delay
+                  </span>
+                )}
+                {seg.disruption_category && (
+                  <span className="capitalize">{seg.disruption_category.replace("_", " ")}</span>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-green-600">
+              <CheckCircle2 size={13} />
+              <span>No disruptions reported for this city</span>
+              {seg.last_checked_at && (
+                <span className="text-slate-400 ml-auto">checked {timeAgo(seg.last_checked_at)}</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Page ─────────────────────────────────────────────────────────
 
 export default function PlannedRouteDetailPage({
@@ -655,20 +744,20 @@ export default function PlannedRouteDetailPage({
 }) {
   const { id } = use(params);
 
-  const [route, setRoute]                 = useState<WatchedRoute | null>(null);
-  const [segments, setSegments]           = useState<WatchedSegment[]>([]);
-  const [loading, setLoading]             = useState(true);
+  const [route, setRoute] = useState<WatchedRoute | null>(null);
+  const [segments, setSegments] = useState<WatchedSegment[]>([]);
+  const [loading, setLoading] = useState(true);
   const [fetchingRoute, setFetchingRoute] = useState(false);
-  const [actionMsg, setActionMsg]         = useState<string | null>(null);
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [activeVariant, setActiveVariant] = useState(0);
-  const [selectedSeg, setSelectedSeg]     = useState<WatchedSegment | null>(null);
+  const [selectedSeg, setSelectedSeg] = useState<WatchedSegment | null>(null);
 
   // Job polling state
-  const [jobId, setJobId]           = useState<string | null>(null);
-  const [jobStatus, setJobStatus]   = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobStatus, setJobStatus] = useState<string | null>(null);
   const [jobProgress, setJobProgress] = useState(0);
-  const [jobDone, setJobDone]       = useState(0);
-  const [jobTotal, setJobTotal]     = useState(0);
+  const [jobDone, setJobDone] = useState(0);
+  const [jobTotal, setJobTotal] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const runningIntel = jobStatus === "pending" || jobStatus === "running";
@@ -789,27 +878,32 @@ export default function PlannedRouteDetailPage({
   const variants = Array.from(new Set(segments.map((s) => s.route_variant))).sort();
   const variantSegments = segments.filter((s) => s.route_variant === activeVariant);
 
+  const citySegs = variantSegments.filter(s =>
+    s.segment_type === "district" || s.segment_type === "tehsil"
+  );
+
+
   // Stats across ALL variants
-  const disruptedAll     = segments.filter((s) => s.has_disruption && s.disruption_risk_level);
-  const disruptedCount   = disruptedAll.length;
-  const totalEtaHours    = disruptedAll.reduce((sum, s) => sum + (s.disruption_eta_hours ?? 0), 0);
-  const computedMaxRisk  = disruptedAll.reduce<RiskLevel>((best, s) => {
+  const disruptedAll = segments.filter((s) => s.has_disruption && s.disruption_risk_level);
+  const disruptedCount = disruptedAll.length;
+  const totalEtaHours = disruptedAll.reduce((sum, s) => sum + (s.disruption_eta_hours ?? 0), 0);
+  const computedMaxRisk = disruptedAll.reduce<RiskLevel>((best, s) => {
     const sl = s.disruption_risk_level as RiskLevel;
     return (RISK_ORDER[sl] ?? 0) > (RISK_ORDER[best] ?? 0) ? sl : best;
   }, "safe");
 
   // Stats for active variant only
-  const variantDisrupted  = variantSegments.filter((s) => s.has_disruption);
-  const variantEta        = variantDisrupted.reduce((s, v) => s + (v.disruption_eta_hours ?? 0), 0);
-  const variantMaxRisk    = variantDisrupted.reduce<RiskLevel>((best, s) => {
+  const variantDisrupted = variantSegments.filter((s) => s.has_disruption);
+  const variantEta = variantDisrupted.reduce((s, v) => s + (v.disruption_eta_hours ?? 0), 0);
+  const variantMaxRisk = variantDisrupted.reduce<RiskLevel>((best, s) => {
     const sl = s.disruption_risk_level as RiskLevel;
     return (RISK_ORDER[sl] ?? 0) > (RISK_ORDER[best] ?? 0) ? sl : best;
   }, "safe");
 
-  const rec      = recommendedAction(computedMaxRisk);
-  const RecIcon  = rec.icon;
+  const rec = recommendedAction(computedMaxRisk);
+  const RecIcon = rec.icon;
   const hasIntel = segments.some((s) => s.last_checked_at !== null);
-
+  
   // Highways affected in current variant
   const highways = variantSegments
     .filter((s) => s.segment_type === "national_highway" || s.segment_type === "state_highway")
@@ -882,11 +976,10 @@ export default function PlannedRouteDetailPage({
 
             {/* Action feedback */}
             {actionMsg && !runningIntel && (
-              <div className={`rounded-lg px-4 py-2.5 text-sm flex items-center gap-2 ${
-                actionMsg.startsWith("Error") || actionMsg.includes("failed") || actionMsg.includes("cancelled")
-                  ? "bg-red-50 border border-red-200 text-red-800"
-                  : "bg-blue-50 border border-blue-200 text-blue-800"
-              }`}>
+              <div className={`rounded-lg px-4 py-2.5 text-sm flex items-center gap-2 ${actionMsg.startsWith("Error") || actionMsg.includes("failed") || actionMsg.includes("cancelled")
+                ? "bg-red-50 border border-red-200 text-red-800"
+                : "bg-blue-50 border border-blue-200 text-blue-800"
+                }`}>
                 <CheckCircle2 size={14} />{actionMsg}
               </div>
             )}
@@ -932,6 +1025,7 @@ export default function PlannedRouteDetailPage({
                 </div>
               </div>
             </div>
+
 
             {/* Not yet fetched */}
             {!route.routes_fetched && (
@@ -1003,6 +1097,26 @@ export default function PlannedRouteDetailPage({
                   </div>
                 </div>
 
+                {citySegs.length > 0 && (
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <MapPin size={14} className="text-slate-500" />
+                        <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">
+                          Cities on Corridor
+                        </h2>
+                      </div>
+                      <span className="text-xs text-slate-400">
+                        {citySegs.filter(s => s.has_disruption).length} disrupted · {citySegs.length} total
+                      </span>
+                    </div>
+                    <div className="p-4 space-y-2">
+                      {citySegs.map(seg => (
+                        <CityNewsCard key={seg.id} seg={seg} />
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {/* Mini route map — plotted from segment coordinates */}
                 <CorridorLeafletMap segments={segments} variants={variants} activeVariant={activeVariant} onSegmentClick={(seg) => setSelectedSeg(seg)} />
 
@@ -1021,9 +1135,9 @@ export default function PlannedRouteDetailPage({
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                     <div className="flex border-b border-slate-100">
                       {variants.map((v) => {
-                        const vSegs     = segments.filter((s) => s.route_variant === v);
+                        const vSegs = segments.filter((s) => s.route_variant === v);
                         const vDisrupted = vSegs.filter((s) => s.has_disruption).length;
-                        const vMaxRisk  = vSegs
+                        const vMaxRisk = vSegs
                           .filter((s) => s.has_disruption)
                           .reduce<RiskLevel>((best, s) => {
                             const sl = s.disruption_risk_level as RiskLevel;
@@ -1034,11 +1148,10 @@ export default function PlannedRouteDetailPage({
                           <button
                             key={v}
                             onClick={() => { setActiveVariant(v); setSelectedSeg(null); }}
-                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-semibold transition border-b-2 ${
-                              activeVariant === v
-                                ? "text-brand-700 border-brand-500 bg-brand-50/40"
-                                : "text-slate-500 border-transparent hover:bg-slate-50"
-                            }`}
+                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-semibold transition border-b-2 ${activeVariant === v
+                              ? "text-brand-700 border-brand-500 bg-brand-50/40"
+                              : "text-slate-500 border-transparent hover:bg-slate-50"
+                              }`}
                           >
                             <span className={`w-2 h-2 rounded-full shrink-0 ${dotCls}`} />
                             {variantLabel(v)}
@@ -1069,6 +1182,7 @@ export default function PlannedRouteDetailPage({
                     </div>
                   </div>
                 )}
+
 
                 {/* Segment list */}
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
