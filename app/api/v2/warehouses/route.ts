@@ -5,6 +5,7 @@ import { uuidv7 } from "@/app/_server/db/uuidv7";
 import { requireUser } from "@/app/_server/auth/getUser";
 import { writeAuditEvent } from "@/app/_server/db/audit";
 import { applySecurityHeaders } from "@/app/_server/security/headers";
+import { triggerWarehouseDiscovery } from "@/app/_server/advisory/trigger-warehouse-discovery";
 
 const CreateWarehouseSchema = z.object({
   name: z.string().min(1).max(200),
@@ -77,6 +78,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             ${data.region ?? ""}, ${data.address ?? null}, ${data.lat ?? null}, ${data.lng ?? null},
             ${data.isActive ?? true})
   `;
+
+  triggerWarehouseDiscovery();
 
   await writeAuditEvent({
     orgId: targetOrgId,

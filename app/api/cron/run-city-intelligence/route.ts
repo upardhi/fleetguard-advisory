@@ -44,6 +44,8 @@ export async function POST(req: NextRequest) {
     SELECT c.id, c.org_id, c.name, c.state
     FROM   adv_cities c
     LEFT   JOIN adv_city_news cn ON cn.city_id = c.id
+    WHERE  (cn.last_checked_at IS NULL
+        OR cn.last_checked_at < now() - interval '24 hours')
     ORDER  BY cn.last_checked_at ASC NULLS FIRST
     LIMIT  ${BATCH_SIZE}
   `) as unknown as CityRow[];
