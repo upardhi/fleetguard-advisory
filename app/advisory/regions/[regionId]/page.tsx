@@ -14,6 +14,7 @@ import {
   Clock, Zap, CheckCircle2, Plus,
 } from "lucide-react";
 import type { Disruption } from "@/app/_lib/types";
+import { NearbyCitiesDrawer } from "@/app/_components/Nearbycitiesdrawer";
 
 // ── Region palette ────────────────────────────────────────────────────────────
 const PAL: Record<string, {
@@ -937,97 +938,118 @@ function CityCard({
   pal: typeof PAL[string];
 }) {
   const [expanded, setExpanded] = useState(disps.length > 0);
+  const [drawerOpen, setDrawerOpen] = useState(false);          // ← new
   const critical = disps.filter((d) => d.riskLevel === "critical").length;
   const high = disps.filter((d) => d.riskLevel === "high").length;
 
   return (
-    <div className={`rounded-2xl border shadow-sm overflow-hidden ${critical > 0 ? "border-red-200" : high > 0 ? "border-orange-200" : "border-slate-200"}`}>
-      {/* City header */}
-      <button type="button" onClick={() => setExpanded((v) => !v)} className="w-full flex items-center gap-3 px-5 py-4 bg-white hover:bg-slate-50/60 text-left transition group">
-        <div className={`w-1 self-stretch rounded-full shrink-0 ${critical > 0 ? "bg-red-500" : high > 0 ? "bg-orange-400" : "bg-emerald-400"}`} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[15px] font-bold text-slate-800">{city.name}</span>
-            {city.is_depot && <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${pal.badge}`}>Depot</span>}
-            <span className="text-[11px] text-slate-400">{city.state}</span>
-          </div>
-          <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-            {disps.length > 0 ? (
-              <>
-                {critical > 0 && <span className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><span className="w-1.5 h-1.5 rounded-full bg-red-500" />{critical} critical</span>}
-                {high > 0 && <span className="flex items-center gap-1 text-[11px] font-semibold text-orange-600"><span className="w-1.5 h-1.5 rounded-full bg-orange-400" />{high} high</span>}
-              </>
-            ) : (
-              <span className="flex items-center gap-1 text-[11px] text-emerald-600 font-semibold"><ShieldCheck size={11} /> Clear</span>
-            )}
-            {corrs.length > 0 && <span className="text-[10px] text-slate-400">{corrs.length} corridor{corrs.length !== 1 ? "s" : ""}</span>}
-            {team.length > 0 && <span className="text-[10px] text-slate-400">{team.length} team</span>}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {disps.length > 0 && <RiskBadge level={(critical > 0 ? "critical" : "high") as RiskLevel} size="xs" pulse={critical > 0} />}
-          <ChevronRight size={14} className={`text-slate-300 group-hover:text-slate-500 transition-all ${expanded ? "rotate-90" : ""}`} />
-        </div>
-      </button>
+    <>
+      {/* Nearby cities drawer */}
+      <NearbyCitiesDrawer
+        cityId={city.id}
+        cityName={city.name}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      />
 
-      {expanded && (
-        <div className="border-t border-slate-100 bg-slate-50/50 divide-y divide-slate-100">
-          {disps.length > 0 && (
-            <div className="px-5 py-4">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
-                <AlertTriangle size={11} className="text-orange-500" /> Active Alerts ({disps.length})
-              </p>
-              <div className="space-y-2">{disps.map((d) => <DisruptionItem key={d.id} d={d} />)}</div>
+      <div className={`rounded-2xl border shadow-sm overflow-hidden ${critical > 0 ? "border-red-200" : high > 0 ? "border-orange-200" : "border-slate-200"}`}>
+        {/* City header */}
+        <button type="button" onClick={() => setExpanded((v) => !v)} className="w-full flex items-center gap-3 px-5 py-4 bg-white hover:bg-slate-50/60 text-left transition group">
+          <div className={`w-1 self-stretch rounded-full shrink-0 ${critical > 0 ? "bg-red-500" : high > 0 ? "bg-orange-400" : "bg-emerald-400"}`} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[15px] font-bold text-slate-800">{city.name}</span>
+              {city.is_depot && <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${pal.badge}`}>Depot</span>}
+              <span className="text-[11px] text-slate-400">{city.state}</span>
             </div>
-          )}
-          {corrs.length > 0 && (
-            <div className="px-5 py-4">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
-                <Route size={11} className="text-slate-400" /> Corridors ({corrs.length})
-              </p>
-              <div className="space-y-1.5">
-                {corrs.map((c) => (
-                  <Link key={c.id} href={`/advisory/planned/${c.id}`} className="flex items-center gap-3 px-3 py-2.5 bg-white rounded-xl border border-slate-200 hover:border-brand-300 hover:bg-brand-50/30 transition group">
-                    <Route size={12} className="text-slate-400 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[12.5px] font-semibold text-slate-700 group-hover:text-brand-700 truncate">{c.name}</p>
-                      <p className="text-[10px] text-slate-400 truncate">{c.origin} → {c.destination}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {c.max_risk_level && c.max_risk_level !== "safe" ? <RiskBadge level={c.max_risk_level as RiskLevel} size="xs" /> : <span className="text-[10px] text-emerald-500 font-medium">Clear</span>}
-                    </div>
-                    <ArrowRight size={11} className="text-slate-300 group-hover:text-brand-400" />
-                  </Link>
-                ))}
+            <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+              {disps.length > 0 ? (
+                <>
+                  {critical > 0 && <span className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><span className="w-1.5 h-1.5 rounded-full bg-red-500" />{critical} critical</span>}
+                  {high > 0 && <span className="flex items-center gap-1 text-[11px] font-semibold text-orange-600"><span className="w-1.5 h-1.5 rounded-full bg-orange-400" />{high} high</span>}
+                </>
+              ) : (
+                <span className="flex items-center gap-1 text-[11px] text-emerald-600 font-semibold"><ShieldCheck size={11} /> Clear</span>
+              )}
+              {corrs.length > 0 && <span className="text-[10px] text-slate-400">{corrs.length} corridor{corrs.length !== 1 ? "s" : ""}</span>}
+              {team.length > 0 && <span className="text-[10px] text-slate-400">{team.length} team</span>}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Nearby button — stops propagation so it doesn't toggle expand */}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setDrawerOpen(true); }}
+              className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2 py-1 rounded-lg transition"
+              title="View nearby cities"
+            >
+              <MapPin size={10} /> Nearby
+            </button>
+            {disps.length > 0 && <RiskBadge level={(critical > 0 ? "critical" : "high") as RiskLevel} size="xs" pulse={critical > 0} />}
+            <ChevronRight size={14} className={`text-slate-300 group-hover:text-slate-500 transition-all ${expanded ? "rotate-90" : ""}`} />
+          </div>
+        </button>
+
+        {/* Expanded body — unchanged */}
+        {expanded && (
+          <div className="border-t border-slate-100 bg-slate-50/50 divide-y divide-slate-100">
+            {disps.length > 0 && (
+              <div className="px-5 py-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
+                  <AlertTriangle size={11} className="text-orange-500" /> Active Alerts ({disps.length})
+                </p>
+                <div className="space-y-2">{disps.map((d) => <DisruptionItem key={d.id} d={d} />)}</div>
               </div>
-            </div>
-          )}
-          {team.length > 0 && (
-            <div className="px-5 py-4">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
-                <Users size={11} className="text-slate-400" /> Team ({team.length})
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {team.map((m) => (
-                  <div key={m.id} className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5">
-                    <div className="w-5 h-5 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 text-[9px] font-bold">{m.full_name.charAt(0)}</div>
-                    <div>
-                      <p className="text-[11px] font-semibold text-slate-700 leading-none">{m.full_name}</p>
-                      <p className="text-[9.5px] text-slate-400">{ROLE_LABELS[m.role] ?? m.role}</p>
-                    </div>
-                  </div>
-                ))}
+            )}
+            {corrs.length > 0 && (
+              <div className="px-5 py-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
+                  <Route size={11} className="text-slate-400" /> Corridors ({corrs.length})
+                </p>
+                <div className="space-y-1.5">
+                  {corrs.map((c) => (
+                    <Link key={c.id} href={`/advisory/planned/${c.id}`} className="flex items-center gap-3 px-3 py-2.5 bg-white rounded-xl border border-slate-200 hover:border-brand-300 hover:bg-brand-50/30 transition group">
+                      <Route size={12} className="text-slate-400 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12.5px] font-semibold text-slate-700 group-hover:text-brand-700 truncate">{c.name}</p>
+                        <p className="text-[10px] text-slate-400 truncate">{c.origin} → {c.destination}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {c.max_risk_level && c.max_risk_level !== "safe" ? <RiskBadge level={c.max_risk_level as RiskLevel} size="xs" /> : <span className="text-[10px] text-emerald-500 font-medium">Clear</span>}
+                      </div>
+                      <ArrowRight size={11} className="text-slate-300 group-hover:text-brand-400" />
+                    </Link>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-          {disps.length === 0 && corrs.length === 0 && team.length === 0 && (
-            <div className="px-5 py-5 text-center space-y-1">
-              <p className="text-[12px] text-slate-400">No corridors with <span className="font-semibold">{city.name}</span> as origin or destination.</p>
-              <p className="text-[11px] text-slate-300">Add a watched corridor with {city.name} as an endpoint to start receiving city-level intelligence.</p>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+            )}
+            {team.length > 0 && (
+              <div className="px-5 py-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
+                  <Users size={11} className="text-slate-400" /> Team ({team.length})
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {team.map((m) => (
+                    <div key={m.id} className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5">
+                      <div className="w-5 h-5 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 text-[9px] font-bold">{m.full_name.charAt(0)}</div>
+                      <div>
+                        <p className="text-[11px] font-semibold text-slate-700 leading-none">{m.full_name}</p>
+                        <p className="text-[9.5px] text-slate-400">{ROLE_LABELS[m.role] ?? m.role}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {disps.length === 0 && corrs.length === 0 && team.length === 0 && (
+              <div className="px-5 py-5 text-center space-y-1">
+                <p className="text-[12px] text-slate-400">No corridors with <span className="font-semibold">{city.name}</span> as origin or destination.</p>
+                <p className="text-[11px] text-slate-300">Add a watched corridor with {city.name} as an endpoint to start receiving city-level intelligence.</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
