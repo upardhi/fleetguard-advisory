@@ -35,13 +35,39 @@ import {
   updateServiceProvider,
 } from "../_services/serviceProviderService";
 
-const INDIA_STATES = [
-  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa",
-  "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala",
-  "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland",
-  "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
-  "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi", "Jammu & Kashmir",
-  "Ladakh", "Puducherry",
+export const INDIA_STATES = [
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+  "Delhi",
+  "Jammu & Kashmir",
+  "Ladakh",
+  "Puducherry",
 ];
 
 const SP_TYPES: { value: ServiceProviderType; label: string }[] = [
@@ -53,10 +79,7 @@ const SP_TYPES: { value: ServiceProviderType; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
-const STATUS_TONE: Record<
-  ServiceProviderStatus,
-  "warning" | "info" | "success" | "danger"
-> = {
+const STATUS_TONE: Record<ServiceProviderStatus, "warning" | "info" | "success" | "danger"> = {
   pending: "warning",
   reviewed: "info",
   approved: "success",
@@ -74,11 +97,11 @@ const STATUS_LABEL: Record<ServiceProviderStatus, string> = {
 export interface SpPermissions {
   canCreate: boolean;
   canEditFields: boolean;
-  canReview: boolean;     // pending → reviewed
-  canApprove: boolean;    // pending/reviewed → approved
-  canReject: boolean;     // used by table actions only
+  canReview: boolean; // pending → reviewed
+  canApprove: boolean; // pending/reviewed → approved
+  canReject: boolean; // used by table actions only
   canDeactivate: boolean; // sets isActive=false (soft disable)
-  canDelete: boolean;     // permanent deletion — used by table actions only
+  canDelete: boolean; // permanent deletion — used by table actions only
   autoApproveOnCreate: boolean;
 }
 
@@ -222,8 +245,7 @@ export function ServiceProviderDrawer({
         isActive: editing.isActive ?? false,
       });
     } else {
-      const defaultWh =
-        user?.role === "wh_manager" && user.warehouseId ? user.warehouseId : null;
+      const defaultWh = user?.role === "wh_manager" && user.warehouseId ? user.warehouseId : null;
       setForm({ ...BLANK, warehouseId: defaultWh });
     }
     setErrors({});
@@ -367,13 +389,13 @@ export function ServiceProviderDrawer({
   const title = isCreate
     ? "Add service provider"
     : perms.canEditFields
-    ? "Edit service provider"
-    : "Service provider";
+      ? "Edit service provider"
+      : "Service provider";
   const subtitle = editing
     ? `Editing ${editing.name}`
     : perms.autoApproveOnCreate
-    ? "Register a company that arrives at your gates"
-    : "New providers go to pending for review and approval.";
+      ? "Register a company that arrives at your gates"
+      : "New providers go to pending for review and approval.";
 
   const status: ServiceProviderStatus | null = editing?.status ?? null;
   // Review (intermediate "pending → reviewed") is a Firestore-era concept; the
@@ -383,8 +405,7 @@ export function ServiceProviderDrawer({
   const showReview = false;
   const showApprove =
     !!editing && perms.canApprove && status !== "approved" && status !== "rejected";
-  const showReject =
-    !!editing && perms.canReject && status !== "approved" && status !== "rejected";
+  const showReject = !!editing && perms.canReject && status !== "approved" && status !== "rejected";
 
   return (
     <SlidePanel open={open} onClose={onClose} title={title} subtitle={subtitle}>
