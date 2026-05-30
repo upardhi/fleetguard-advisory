@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/app/_server/db/client";
-import { firecrawlSearch, firecrawlScrape } from "@/app/_server/advisory/firecrawl";
+import { firecrawlScrape } from "@/app/_server/advisory/firecrawl";
 import { analyzeNews } from "@/app/_server/advisory/analyze";
-import { currentSearchQuery } from "@/app/_server/advisory/decompose";
+import { currentSearchQuery, futureSearchQuery } from "@/app/_server/advisory/decompose";
+import { searchCurrentNews, searchFutureNews } from "@/app/_server/advisory/news-search.service";
 
 export const maxDuration = 300;
 
 const BATCH_SIZE = 10;
-
-const RISK_ORDER: Record<string, number> = {
-  critical: 5, high: 4, medium: 3, low: 2, safe: 1,
-};
 
 interface CityRow {
   id: string;
@@ -25,11 +22,18 @@ interface EventSource {
   snippet: string;
   isRelevant: boolean;
   scrapedAt: string;
+  eventType?: "ongoing" | "scheduled";
 }
 
-// POST /api/cron/run-city-intelligence
-// Fires on its own cron schedule (e.g. every 30 mins).
-// Processes one batch of cities per invocation — cycles through all orgs.
+function getRiskScore(level: string): number {
+  if (level === "critical") return 5;
+  if (level === "high") return 4;
+  if (level === "medium") return 3;
+  if (level === "low") return 2;
+  if (level === "safe") return 1;
+  return 0;
+}
+
 export async function POST(req: NextRequest) {
   const cronSecret = req.headers.get("x-vercel-cron-auth") ?? "";
   const hasCronAuth = !process.env.CRON_SECRET || cronSecret === process.env.CRON_SECRET;
@@ -39,7 +43,6 @@ export async function POST(req: NextRequest) {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  // Pick the batch of cities least recently checked — cycles through all naturally
   const cities = (await db`
     SELECT c.id, c.org_id, c.name, c.state
     FROM   adv_cities c
@@ -60,7 +63,7 @@ export async function POST(req: NextRequest) {
 
   for (const city of cities) {
     const ctx = { segment: city.name, state: city.state ?? undefined, todayIso: today };
-    const sources: EventSource[] = [];
+    const allSources: EventSource[] = [];
     const now = new Date().toISOString();
 
     let bestRisk: string | null = null;
@@ -69,12 +72,16 @@ export async function POST(req: NextRequest) {
     let bestEta: number | null = null;
     let bestCategory: string | null = null;
 
+    // ─────────────────────────────────────────────────────────────────
+    // 1. CURRENT NEWS
+    // ─────────────────────────────────────────────────────────────────
     try {
-      const hits = await firecrawlSearch(
-        currentSearchQuery({ name: city.name, state: city.state ?? undefined }), 5
+      const currentHits = await searchCurrentNews(
+        currentSearchQuery({ name: city.name, state: city.state ?? undefined }), 
+        8
       );
 
-      for (const hit of hits) {
+      for (const hit of currentHits) {
         let scraped = scrapedCache.get(hit.url) ?? { markdown: hit.description, title: hit.title };
         if (!scrapedCache.has(hit.url)) {
           try { scraped = await firecrawlScrape(hit.url); } catch { /* use snippet */ }
@@ -89,18 +96,19 @@ export async function POST(req: NextRequest) {
           && result.eventType === "ongoing"
           && result.riskLevel !== "safe";
 
-        sources.push({
+        allSources.push({
           url: hit.url,
           title: scraped.title || hit.title,
           snippet: hit.description.slice(0, 200),
           isRelevant: isCurrentDisruption,
           scrapedAt: now,
+          eventType: "ongoing",
         });
 
         const isActionable = isCurrentDisruption &&
           (result.riskLevel === "critical" || result.riskLevel === "high");
 
-        if (isActionable && (RISK_ORDER[result.riskLevel] ?? 0) > (RISK_ORDER[bestRisk ?? "safe"] ?? 0)) {
+        if (isActionable && getRiskScore(result.riskLevel) > getRiskScore(bestRisk ?? "safe")) {
           bestRisk = result.riskLevel;
           bestTitle = result.title;
           bestSummary = result.summary;
@@ -109,10 +117,58 @@ export async function POST(req: NextRequest) {
         }
       }
     } catch (err) {
-      console.error(`[city-cron] search failed for ${city.name}:`, err);
+      console.error(`[city-cron] current search failed for ${city.name}:`, err);
     }
 
-    // Upsert into adv_city_news
+    // ─────────────────────────────────────────────────────────────────
+    // 2. FUTURE NEWS (scheduled events)
+    // ─────────────────────────────────────────────────────────────────
+    try {
+      const futureHits = await searchFutureNews(
+        futureSearchQuery({ name: city.name, state: city.state ?? undefined }), 
+        5
+      );
+
+      for (const hit of futureHits) {
+        let scraped = scrapedCache.get(hit.url) ?? { markdown: hit.description, title: hit.title };
+        if (!scrapedCache.has(hit.url)) {
+          try { scraped = await firecrawlScrape(hit.url); } catch { /* use snippet */ }
+          scrapedCache.set(hit.url, scraped);
+        }
+
+        const content = `${scraped.title}\n\n${scraped.markdown}`.trim();
+        if (!content) continue;
+
+        const result = await analyzeNews(content, ctx);
+        const isFutureDisruption = result.isRelevant
+          && result.eventType === "scheduled"
+          && (result.riskLevel === "critical" || result.riskLevel === "high");
+
+        allSources.push({
+          url: hit.url,
+          title: scraped.title || hit.title,
+          snippet: hit.description.slice(0, 200),
+          isRelevant: isFutureDisruption,
+          scrapedAt: now,
+          eventType: "scheduled",
+        });
+
+        const currentRiskScore = getRiskScore(bestRisk ?? "safe");
+        const futureRiskScore = getRiskScore(result.riskLevel);
+
+        if (isFutureDisruption && futureRiskScore > currentRiskScore) {
+          bestRisk = result.riskLevel;
+          bestTitle = result.title;
+          bestSummary = result.summary;
+          bestEta = result.etaImpactHours;
+          bestCategory = result.category;
+        }
+      }
+    } catch (err) {
+      console.error(`[city-cron] future search failed for ${city.name}:`, err);
+    }
+
+    // Upsert into adv_city_news - using ONLY existing columns (no future_sources, no event_type)
     await db`
       INSERT INTO adv_city_news
         (id, org_id, city_id, has_disruption,
@@ -123,7 +179,7 @@ export async function POST(req: NextRequest) {
         ${bestRisk !== null && bestRisk !== "safe"},
         ${bestRisk ?? null}, ${bestTitle ?? null}, ${bestSummary ?? null},
         ${bestEta ?? null}, ${bestCategory ?? null},
-        ${db.json(sources as unknown as Parameters<typeof db.json>[0])},
+        ${db.json(allSources as unknown as Parameters<typeof db.json>[0])},
         now()
       )
       ON CONFLICT (city_id) DO UPDATE SET

@@ -15,6 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ regionId: string }> },
 ) {
   let actor;
+  debugger;
   try { actor = await requireUser(req); }
   catch { return applySecurityHeaders(NextResponse.json({ error: "Unauthorized" }, { status: 401 })); }
 

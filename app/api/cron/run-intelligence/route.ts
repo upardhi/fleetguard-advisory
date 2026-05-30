@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/app/_server/auth/getUser";
 import { db } from "@/app/_server/db/client";
-import { firecrawlSearch, firecrawlSearchFuture, firecrawlScrape } from "@/app/_server/advisory/firecrawl";
+import { firecrawlScrape } from "@/app/_server/advisory/firecrawl";
 import { analyzeNews } from "@/app/_server/advisory/analyze";
 import { currentSearchQuery, futureSearchQuery } from "@/app/_server/advisory/decompose";
+import { searchCurrentNews, searchFutureNews } from "@/app/_server/advisory/news-search.service";
 
 export const maxDuration = 300;
 
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Atomically claim the oldest pending or in-progress job
- const [job] = (await db`
+  const [job] = (await db`
   UPDATE adv_intel_jobs
   SET    status     = 'running',
          started_at = COALESCE(started_at, now())
@@ -124,7 +125,7 @@ export async function POST(req: NextRequest) {
 
     try {
       // Fetch 5 results (up from 3) — gives more coverage for busy corridors
-      const hits = await firecrawlSearch(currentSearchQuery({ name: seg.name, state: seg.state ?? undefined }), 5);
+      const hits = await searchCurrentNews(currentSearchQuery({ name: seg.name, state: seg.state ?? undefined }), 10);
 
       for (const hit of hits) {
         // Use cached scrape if available, otherwise fetch and cache
@@ -227,7 +228,7 @@ export async function POST(req: NextRequest) {
 
     // ── Search 2: Future scheduled events (next 30 days) ────────────────────
     try {
-      const futureHits = await firecrawlSearchFuture(futureSearchQuery({ name: seg.name, state: seg.state ?? undefined }), 3);
+      const futureHits = await searchFutureNews(futureSearchQuery({ name: seg.name, state: seg.state ?? undefined }), 10);
 
       for (const hit of futureHits) {
         let scraped = { markdown: hit.description, title: hit.title };
@@ -301,12 +302,12 @@ export async function POST(req: NextRequest) {
     `;
   }
 
-   if (isComplete) {
+  if (isComplete) {
     const [route] = await db`
       SELECT schedule_type, scheduled_date FROM adv_watched_routes 
       WHERE id = ${job.route_id}
     `;
-    
+
     if (route.schedule_type === 'once') {
       await db`
         UPDATE adv_watched_routes
@@ -316,7 +317,7 @@ export async function POST(req: NextRequest) {
       `;
     }
   }
-  
+
   return NextResponse.json({
     ok: true,
     jobId: job.id,

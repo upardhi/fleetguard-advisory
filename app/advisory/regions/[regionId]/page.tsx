@@ -977,14 +977,13 @@ function CityCard({
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {/* Nearby button — stops propagation so it doesn't toggle expand */}
-            <button
-              type="button"
+            <div
               onClick={(e) => { e.stopPropagation(); setDrawerOpen(true); }}
               className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2 py-1 rounded-lg transition"
               title="View nearby cities"
             >
               <MapPin size={10} /> Nearby
-            </button>
+            </div>
             {disps.length > 0 && <RiskBadge level={(critical > 0 ? "critical" : "high") as RiskLevel} size="xs" pulse={critical > 0} />}
             <ChevronRight size={14} className={`text-slate-300 group-hover:text-slate-500 transition-all ${expanded ? "rotate-90" : ""}`} />
           </div>

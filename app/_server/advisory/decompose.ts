@@ -95,9 +95,8 @@ export async function decomposeRoute(
  */
 export function currentSearchQuery(seg: { name: string; state?: string }): string {
   const place = seg.state ? `${seg.name} ${seg.state}` : seg.name;
-  return `${place} road OR highway blocked OR closed OR accident OR flood OR protest OR roadblock OR jam OR traffic snarl OR gridlock OR congestion OR strike news`;
+  return `${place} (road OR highway OR traffic OR transport OR vehicle) (accident OR flood OR protest OR roadblock OR jam OR "traffic snarl" OR gridlock OR congestion OR strike OR bandh OR diversion OR closure) (news OR update OR today) Indian OR state OR Cities`;
 }
-
 /**
  * Future event search — no date restriction, explicitly looks for upcoming events.
  * Surfaces PM visits, bandh calls, election rallies, processions announced ahead of time.
@@ -105,7 +104,7 @@ export function currentSearchQuery(seg: { name: string; state?: string }): strin
 export function futureSearchQuery(seg: { name: string; state?: string }): string {
   const place = seg.state ? `${seg.name} ${seg.state}` : seg.name;
   const year = new Date().getFullYear();
-  return `${place} bandh OR "PM visit" OR "CM visit" OR rally OR election OR yatra OR procession OR strike OR roadblock scheduled ${year}`;
+  return `${place} (road OR highway OR traffic OR transport) (bandh OR "PM visit" OR "CM visit" OR rally OR election OR yatra OR procession OR strike OR roadblock OR "route diversion" OR "traffic advisory" OR "road closure" OR "highway blocked") scheduled ${year} Indian OR state OR Cities`;
 }
 
 /** @deprecated Use currentSearchQuery instead */

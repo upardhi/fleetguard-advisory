@@ -31,8 +31,8 @@ export interface SearchHit {
   description: string;
   pubDate?: string | null;
   source?:
-    | "firecrawl"
-    | "google-rss";
+  | "firecrawl"
+  | "google-rss";
 }
 
 interface FcSearchResponse {
@@ -138,6 +138,7 @@ async function firecrawlCurrentSearch(
       body: JSON.stringify({
         query,
         limit,
+        sources: ["news"],
         tbs: "qdr:d",
       }),
     }
@@ -199,6 +200,8 @@ async function firecrawlFutureSearch(
       body: JSON.stringify({
         query: futureQuery,
         limit,
+        sources: ["news"],
+
       }),
     }
   );
@@ -266,24 +269,24 @@ export async function searchCurrentNews(
 
   const firecrawlHits =
     firecrawlResult.status ===
-    "fulfilled"
+      "fulfilled"
       ? firecrawlResult.value
       : [];
 
   const rssHits =
     rssResult.status ===
-    "fulfilled"
+      "fulfilled"
       ? rssResult.value.map(
-          (item) => ({
-            url: item.link,
-            title: item.title,
-            description: "",
-            pubDate:
-              item.pubDate,
-            source:
-              "google-rss" as const,
-          })
-        )
+        (item) => ({
+          url: item.link,
+          title: item.title,
+          description: "",
+          pubDate:
+            item.pubDate,
+          source:
+            "google-rss" as const,
+        })
+      )
       : [];
 
   const merged =
@@ -331,24 +334,24 @@ export async function searchFutureNews(
 
   const firecrawlHits =
     firecrawlResult.status ===
-    "fulfilled"
+      "fulfilled"
       ? firecrawlResult.value
       : [];
 
   const rssHits =
     rssResult.status ===
-    "fulfilled"
+      "fulfilled"
       ? rssResult.value.map(
-          (item) => ({
-            url: item.link,
-            title: item.title,
-            description: "",
-            pubDate:
-              item.pubDate,
-            source:
-              "google-rss" as const,
-          })
-        )
+        (item) => ({
+          url: item.link,
+          title: item.title,
+          description: "",
+          pubDate:
+            item.pubDate,
+          source:
+            "google-rss" as const,
+        })
+      )
       : [];
 
   const merged =

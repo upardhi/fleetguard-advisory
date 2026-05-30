@@ -55,7 +55,7 @@ export async function firecrawlSearch(query: string, limit = 5): Promise<SearchH
 
 interface FcScrapeResponse {
   success?: boolean;
-  data?: { markdown?: string; metadata?: { title?: string; sourceURL?: string } };
+  data?: { markdown?: string; metadata?: { title?: string; sourceURL?: string }, extract?: { content?: string; date?: string } };
   error?: string;
 }
 
@@ -72,9 +72,23 @@ export async function firecrawlScrape(url: string): Promise<ScrapeResult> {
       "Content-Type": "application/json",
       Authorization: `Bearer ${firecrawlKey()}`,
     },
-    body: JSON.stringify({ url, formats: ["markdown"], onlyMainContent: true }),
+    body: JSON.stringify({
+      url,
+      formats: ["extract"],
+      extract: {
+        schema: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            content: { type: "string" },
+            date: { type: "string" }
+          },
+          required: ["title", "content"]
+        }
+      }
+    }),
   });
-
+  
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Firecrawl scrape HTTP ${res.status}: ${text.slice(0, 200)}`);
@@ -84,7 +98,7 @@ export async function firecrawlScrape(url: string): Promise<ScrapeResult> {
   if (data.error) throw new Error(`Firecrawl scrape: ${data.error}`);
 
   return {
-    markdown: data.data?.markdown ?? "",
+    markdown: `${data.data?.extract?.content} published on ${data.data?.extract?.date}`,
     title: data.data?.metadata?.title ?? "",
   };
 }
