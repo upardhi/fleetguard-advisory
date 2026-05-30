@@ -61,6 +61,7 @@ export const icons = {
   bell: Bell,
   shieldAlert: ShieldAlert,
   users: Users,
+  warehouse: Warehouse,
   package: Package,
   chart: BarChart3,
   file: FileText,
@@ -284,9 +285,16 @@ function WarehouseSwitcher({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const selected = selectedId === "all" ? null : warehouses.find((w) => w.id === selectedId) ?? null;
-  const displayName = selected ? selected.name : (warehouses.length === 0 ? currentName : "All warehouses");
-  const displaySub  = selected ? `${selected.city}, ${selected.state}` : currentSubtitle || "Pan-org view";
+  const selected =
+    selectedId === "all" ? null : (warehouses.find((w) => w.id === selectedId) ?? null);
+  const displayName = selected
+    ? selected.name
+    : warehouses.length === 0
+      ? currentName
+      : "All warehouses";
+  const displaySub = selected
+    ? `${selected.city}, ${selected.state}`
+    : currentSubtitle || "Pan-org view";
 
   // Single warehouse — show static info, no dropdown
   if (warehouses.length <= 1) {
@@ -318,7 +326,12 @@ function WarehouseSwitcher({
           <div className="truncate text-[13px] font-semibold text-white">{displayName}</div>
           <div className="truncate text-[11px] text-slate-400">{displaySub}</div>
         </div>
-        <ChevronDown className={cx("h-4 w-4 shrink-0 text-slate-400 transition-transform duration-150", open && "rotate-180")} />
+        <ChevronDown
+          className={cx(
+            "h-4 w-4 shrink-0 text-slate-400 transition-transform duration-150",
+            open && "rotate-180"
+          )}
+        />
       </button>
 
       {/* Dropdown */}
@@ -328,7 +341,10 @@ function WarehouseSwitcher({
           {!hideAllOption && (
             <button
               type="button"
-              onClick={() => { onSelect("all"); setOpen(false); }}
+              onClick={() => {
+                onSelect("all");
+                setOpen(false);
+              }}
               className={cx(
                 "flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-white/10",
                 selectedId === "all" && "bg-white/10"
@@ -356,7 +372,10 @@ function WarehouseSwitcher({
               <button
                 key={w.id}
                 type="button"
-                onClick={() => { onSelect(w.id); setOpen(false); }}
+                onClick={() => {
+                  onSelect(w.id);
+                  setOpen(false);
+                }}
                 className={cx(
                   "flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-white/10",
                   selectedId === w.id && "bg-white/10"
@@ -367,7 +386,9 @@ function WarehouseSwitcher({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[13px] font-semibold text-white">{w.name}</div>
-                  <div className="truncate text-[11px] text-slate-400">{w.city}, {w.state}</div>
+                  <div className="truncate text-[11px] text-slate-400">
+                    {w.city}, {w.state}
+                  </div>
                 </div>
                 {selectedId === w.id && <Check className="h-3.5 w-3.5 shrink-0 text-accent-400" />}
               </button>
@@ -413,19 +434,24 @@ function timeAgo(iso: string): string {
 }
 
 function NotificationBell() {
-  const [open, setOpen]             = useState(false);
-  const [notifications, setNotifs]  = useState<AdvisoryNotification[]>([]);
-  const [unread, setUnread]         = useState(0);
+  const [open, setOpen] = useState(false);
+  const [notifications, setNotifs] = useState<AdvisoryNotification[]>([]);
+  const [unread, setUnread] = useState(0);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/advisory/v1/notifications", { credentials: "include" });
       if (!res.ok) return;
-      const data = await res.json() as { notifications: AdvisoryNotification[]; unreadCount: number };
+      const data = (await res.json()) as {
+        notifications: AdvisoryNotification[];
+        unreadCount: number;
+      };
       setNotifs(data.notifications);
       setUnread(data.unreadCount);
-    } catch { /* silently ignore */ }
+    } catch {
+      /* silently ignore */
+    }
   }, []);
 
   // Poll every 60 s
@@ -459,7 +485,9 @@ function NotificationBell() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({}),
         });
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -494,7 +522,8 @@ function NotificationBell() {
                   setUnread(0);
                   setNotifs((p) => p.map((n) => ({ ...n, is_read: true })));
                   await fetch("/api/advisory/v1/notifications/read", {
-                    method: "POST", credentials: "include",
+                    method: "POST",
+                    credentials: "include",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({}),
                   });
@@ -516,8 +545,8 @@ function NotificationBell() {
                 const href = n.route_id
                   ? `/advisory/planned/${n.route_id}`
                   : n.region_id
-                  ? `/advisory/regions/${n.region_id}`
-                  : "/advisory/regions";
+                    ? `/advisory/regions/${n.region_id}`
+                    : "/advisory/regions";
                 return (
                   <Link
                     key={n.id}
@@ -530,10 +559,17 @@ function NotificationBell() {
                   >
                     {/* Risk dot */}
                     <div className="flex-shrink-0 mt-1">
-                      <span className={cx("inline-block h-2 w-2 rounded-full", riskDot(n.risk_level))} />
+                      <span
+                        className={cx("inline-block h-2 w-2 rounded-full", riskDot(n.risk_level))}
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className={cx("text-[12.5px] leading-snug", n.is_read ? "text-slate-300" : "text-white font-medium")}>
+                      <div
+                        className={cx(
+                          "text-[12.5px] leading-snug",
+                          n.is_read ? "text-slate-300" : "text-white font-medium"
+                        )}
+                      >
                         {n.title}
                       </div>
                       {n.body && (
@@ -543,13 +579,9 @@ function NotificationBell() {
                       )}
                       <div className="mt-1 flex items-center gap-2">
                         {n.region_label && (
-                          <span className="text-[10px] text-slate-500">
-                            {n.region_label}
-                          </span>
+                          <span className="text-[10px] text-slate-500">{n.region_label}</span>
                         )}
-                        <span className="text-[10px] text-slate-600">
-                          {timeAgo(n.created_at)}
-                        </span>
+                        <span className="text-[10px] text-slate-600">{timeAgo(n.created_at)}</span>
                       </div>
                     </div>
                     {!n.is_read && (
@@ -587,32 +619,33 @@ function NotificationBell() {
 const ADVISORY_NAV: Section[] = [
   {
     items: [
-      { href: "/advisory",         label: "Control Tower",    icon: "dashboard", end: true },
-      { href: "/advisory/regions", label: "Regions & Cities", icon: "mapPin"               },
+      { href: "/advisory", label: "Control Tower", icon: "dashboard", end: true },
+      { href: "/advisory/regions", label: "Regions & Cities", icon: "mapPin" },
+      { href: "/advisory/warehouses", label: "Warehouses", icon: "warehouse" },
     ],
   },
   {
     heading: "Corridors",
     items: [
-      { href: "/advisory/corridors",    label: "Watched Corridors", icon: "listChecks" },
-      { href: "/advisory/disruptions",  label: "Disruptions",       icon: "shieldAlert" },
-      { href: "/advisory/events",       label: "Fleet Events",      icon: "calendar"   },
+      { href: "/advisory/corridors", label: "Watched Corridors", icon: "listChecks" },
+      { href: "/advisory/disruptions", label: "Disruptions", icon: "shieldAlert" },
+      { href: "/advisory/events", label: "Fleet Events", icon: "calendar" },
     ],
   },
   {
     heading: "Intelligence",
     items: [
-      { href: "/advisory/advisories",     label: "AI Advisories",  icon: "sparkles" },
-      { href: "/advisory/route-analysis", label: "Route Analysis", icon: "truck"    },
-      { href: "/advisory/map",            label: "Risk Map",       icon: "globe"    },
+      { href: "/advisory/advisories", label: "AI Advisories", icon: "sparkles" },
+      { href: "/advisory/route-analysis", label: "Route Analysis", icon: "truck" },
+      { href: "/advisory/map", label: "Risk Map", icon: "globe" },
     ],
   },
   {
     heading: "Account",
     items: [
-      { href: "/advisory/profile",  label: "My Profile", icon: "user"  },
-      { href: "/advisory/team",     label: "Team",       icon: "users" },
-      { href: "/advisory/settings", label: "Settings",   icon: "file"  },
+      { href: "/advisory/profile", label: "My Profile", icon: "user" },
+      { href: "/advisory/team", label: "Team", icon: "users" },
+      { href: "/advisory/settings", label: "Settings", icon: "file" },
     ],
   },
 ];
@@ -624,7 +657,10 @@ export default function AdvisorySidebar() {
   const [signingOut, setSigningOut] = useState(false);
 
   const warehouseOptions: WarehouseOption[] = warehouses.map((w) => ({
-    id: w.id, name: w.name, city: w.city, state: w.state,
+    id: w.id,
+    name: w.name,
+    city: w.city,
+    state: w.state,
   }));
 
   function handleWarehouseChange(id: string) {
@@ -634,7 +670,11 @@ export default function AdvisorySidebar() {
 
   async function handleSignOut() {
     setSigningOut(true);
-    try { await logOut(); } catch { /* ignore */ }
+    try {
+      await logOut();
+    } catch {
+      /* ignore */
+    }
     setSigningOut(false);
     router.push("/login");
   }
@@ -673,7 +713,13 @@ export default function AdvisorySidebar() {
             <ul className="space-y-0.5">
               {section.items.map((item) => (
                 <li key={item.href}>
-                  <AdvisoryNavLink href={item.href} icon={item.icon} label={item.label} badge={item.badge} end={item.end} />
+                  <AdvisoryNavLink
+                    href={item.href}
+                    icon={item.icon}
+                    label={item.label}
+                    badge={item.badge}
+                    end={item.end}
+                  />
                 </li>
               ))}
             </ul>
@@ -686,7 +732,9 @@ export default function AdvisorySidebar() {
         <div className="flex items-center gap-2 rounded-md bg-white/5 px-3 py-2.5">
           <Avatar name={user?.name ?? "—"} size="sm" tone="brand" />
           <div className="flex-1 min-w-0">
-            <div className="truncate text-[12.5px] font-semibold text-white">{user?.name ?? "—"}</div>
+            <div className="truncate text-[12.5px] font-semibold text-white">
+              {user?.name ?? "—"}
+            </div>
             <div className="truncate text-[10.5px] text-slate-400">{user?.role ?? ""}</div>
           </div>
           {/* Notification bell */}
@@ -710,7 +758,11 @@ export default function AdvisorySidebar() {
 // ── Advisory nav link (active state) ─────────────────────────────────────────
 
 function AdvisoryNavLink({
-  href, icon, label, badge, end,
+  href,
+  icon,
+  label,
+  badge,
+  end,
 }: {
   href: string;
   icon: IconKey;
