@@ -26,7 +26,7 @@ export interface RouteSegment {
  */
 export async function decomposeRoute(
   polyline: string,
-  highways: string[],
+  highways: string[]
 ): Promise<RouteSegment[]> {
   const path = decodePolyline(polyline);
   const samples = samplePath(path, 12, 60);
@@ -54,8 +54,8 @@ export async function decomposeRoute(
       batch.map(([lat, lng]) =>
         reverseGeocode(lat, lng)
           .then((a) => ({ a, lat, lng }))
-          .catch(() => ({ a: {} as Awaited<ReturnType<typeof reverseGeocode>>, lat, lng })),
-      ),
+          .catch(() => ({ a: {} as Awaited<ReturnType<typeof reverseGeocode>>, lat, lng }))
+      )
     );
 
     for (const { a, lat, lng } of areas) {

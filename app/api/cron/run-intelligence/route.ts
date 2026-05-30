@@ -1,16 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/app/_server/auth/getUser";
 import { db } from "@/app/_server/db/client";
-import { firecrawlSearch, firecrawlSearchFuture, firecrawlScrape } from "@/app/_server/advisory/firecrawl";
+import {
+  firecrawlSearch,
+  firecrawlSearchFuture,
+  firecrawlScrape,
+} from "@/app/_server/advisory/firecrawl";
 import { analyzeNews } from "@/app/_server/advisory/analyze";
 import { currentSearchQuery, futureSearchQuery } from "@/app/_server/advisory/decompose";
+import { searchCurrentNews, searchFutureNews } from "@/app/_server/advisory/news-search.service";
 
 export const maxDuration = 300;
 
 const BATCH_SIZE = 8; // segments per cron invocation
 
 const RISK_ORDER: Record<string, number> = {
-  critical: 5, high: 4, medium: 3, low: 2, safe: 1,
+  critical: 5,
+  high: 4,
+  medium: 3,
+  low: 2,
+  safe: 1,
 };
 
 function worstRisk(levels: (string | null | undefined)[]): string {
@@ -55,12 +64,15 @@ export async function POST(req: NextRequest) {
   const cronSecret = req.headers.get("x-vercel-cron-auth") ?? "";
   const hasCronAuth = !process.env.CRON_SECRET || cronSecret === process.env.CRON_SECRET;
   if (!hasCronAuth) {
-    try { await requireUser(req); }
-    catch { return NextResponse.json({ error: "Forbidden" }, { status: 403 }); }
+    try {
+      await requireUser(req);
+    } catch {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
   }
 
   // Atomically claim the oldest pending or in-progress job
- const [job] = (await db`
+  const [job] = (await db`
   UPDATE adv_intel_jobs
   SET    status     = 'running',
          started_at = COALESCE(started_at, now())
@@ -85,7 +97,6 @@ export async function POST(req: NextRequest) {
   RETURNING id, route_id, org_id, segments_total, segments_done, disruptions_found
 `) as unknown as Job[];
 
-
   if (!job) return NextResponse.json({ ok: true, message: "No pending jobs" });
 
   const today = new Date().toISOString().slice(0, 10);
@@ -101,7 +112,11 @@ export async function POST(req: NextRequest) {
 
   if (segments.length === 0) {
     await finishJob(job);
-    return NextResponse.json({ ok: true, jobId: job.id, message: "Job complete (no more segments)" });
+    return NextResponse.json({
+      ok: true,
+      jobId: job.id,
+      message: "Job complete (no more segments)",
+    });
   }
 
   let batchDisruptions = 0;
@@ -124,19 +139,35 @@ export async function POST(req: NextRequest) {
 
     try {
       // Fetch 5 results (up from 3) — gives more coverage for busy corridors
-      const hits = await firecrawlSearch(currentSearchQuery({ name: seg.name, state: seg.state ?? undefined }), 5);
+      const segCtx = { name: seg.name, state: seg.state ?? undefined };
+
+      const hits = await searchCurrentNews(
+        currentSearchQuery(segCtx), // kept as baseQuery for backward compat
+        10, // minimum 10 results (was 5)
+        segCtx // enables full 5-variant fan-out
+      );
 
       for (const hit of hits) {
         // Use cached scrape if available, otherwise fetch and cache
         let scraped = scrapedCache.get(hit.url) ?? { markdown: hit.description, title: hit.title };
         if (!scrapedCache.has(hit.url)) {
-          try { scraped = await firecrawlScrape(hit.url); } catch { /* use snippet */ }
+          try {
+            scraped = await firecrawlScrape(hit.url);
+          } catch {
+            /* use snippet */
+          }
           scrapedCache.set(hit.url, scraped);
         }
 
         const content = `${scraped.title}\n\n${scraped.markdown}`.trim();
         if (!content) {
-          sources.push({ url: hit.url, title: hit.title, snippet: hit.description, isRelevant: false, scrapedAt: now });
+          sources.push({
+            url: hit.url,
+            title: hit.title,
+            snippet: hit.description,
+            isRelevant: false,
+            scrapedAt: now,
+          });
           continue;
         }
 
@@ -145,9 +176,8 @@ export async function POST(req: NextRequest) {
         // "Patel Nagar" and "NH9" segments on the same corridor).
         const result = await analyzeNews(content, ctx);
         // Only accept ACTIVE (ongoing) events — not historical and not future scheduled
-        const isCurrentDisruption = result.isRelevant
-          && result.eventType === "ongoing"
-          && result.riskLevel !== "safe";
+        const isCurrentDisruption =
+          result.isRelevant && result.eventType === "ongoing" && result.riskLevel !== "safe";
 
         sources.push({
           url: hit.url,
@@ -158,10 +188,13 @@ export async function POST(req: NextRequest) {
         });
 
         // Hard filter: only Critical and High events are actionable
-        const isActionable = isCurrentDisruption &&
-          (result.riskLevel === "critical" || result.riskLevel === "high");
+        const isActionable =
+          isCurrentDisruption && (result.riskLevel === "critical" || result.riskLevel === "high");
 
-        if (isActionable && (RISK_ORDER[result.riskLevel] ?? 0) > (RISK_ORDER[bestRisk ?? "safe"] ?? 0)) {
+        if (
+          isActionable &&
+          (RISK_ORDER[result.riskLevel] ?? 0) > (RISK_ORDER[bestRisk ?? "safe"] ?? 0)
+        ) {
           bestRisk = result.riskLevel;
           bestTitle = result.title;
           bestSummary = result.summary;
@@ -227,11 +260,18 @@ export async function POST(req: NextRequest) {
 
     // ── Search 2: Future scheduled events (next 30 days) ────────────────────
     try {
-      const futureHits = await firecrawlSearchFuture(futureSearchQuery({ name: seg.name, state: seg.state ?? undefined }), 3);
+      const futureHits = await searchFutureNews(
+        futureSearchQuery({ name: seg.name, state: seg.state ?? undefined }),
+        3
+      );
 
       for (const hit of futureHits) {
         let scraped = { markdown: hit.description, title: hit.title };
-        try { scraped = await firecrawlScrape(hit.url); } catch { /* use snippet */ }
+        try {
+          scraped = await firecrawlScrape(hit.url);
+        } catch {
+          /* use snippet */
+        }
 
         const content = `${scraped.title}\n\n${scraped.markdown}`.trim();
         if (!content) continue;
@@ -239,15 +279,20 @@ export async function POST(req: NextRequest) {
         const result = await analyzeNews(content, ctx);
 
         // Only store scheduled events that are Critical or High — filter out noise
-        if (result.isRelevant && result.eventType === "scheduled" &&
-          (result.riskLevel === "critical" || result.riskLevel === "high")) {
-          const eventSrc: EventSource[] = [{
-            url: hit.url,
-            title: scraped.title || hit.title,
-            snippet: hit.description.slice(0, 200),
-            isRelevant: true,
-            scrapedAt: now,
-          }];
+        if (
+          result.isRelevant &&
+          result.eventType === "scheduled" &&
+          (result.riskLevel === "critical" || result.riskLevel === "high")
+        ) {
+          const eventSrc: EventSource[] = [
+            {
+              url: hit.url,
+              title: scraped.title || hit.title,
+              snippet: hit.description.slice(0, 200),
+              isRelevant: true,
+              scrapedAt: now,
+            },
+          ];
 
           // Upsert — same segment + same title prefix = increment rescan_count, don't duplicate
           await db`
@@ -301,13 +346,13 @@ export async function POST(req: NextRequest) {
     `;
   }
 
-   if (isComplete) {
+  if (isComplete) {
     const [route] = await db`
       SELECT schedule_type, scheduled_date FROM adv_watched_routes 
       WHERE id = ${job.route_id}
     `;
-    
-    if (route.schedule_type === 'once') {
+
+    if (route.schedule_type === "once") {
       await db`
         UPDATE adv_watched_routes
         SET is_schedule_active = false,
@@ -316,7 +361,7 @@ export async function POST(req: NextRequest) {
       `;
     }
   }
-  
+
   return NextResponse.json({
     ok: true,
     jobId: job.id,
@@ -332,29 +377,41 @@ export async function POST(req: NextRequest) {
 // then inserts a notification for each — deduplicating by (user_id, title prefix)
 // within the last 20 hours so we don't spam on repeated scans.
 async function createNotificationsForDisruption({
-  orgId, routeId, segmentId, state, title, summary, riskLevel, category,
+  orgId,
+  routeId,
+  segmentId,
+  state,
+  title,
+  summary,
+  riskLevel,
+  category,
 }: {
-  orgId: string; routeId: string; segmentId: string;
-  state: string | null; title: string; summary: string | null;
-  riskLevel: string | null; category: string | null;
+  orgId: string;
+  routeId: string;
+  segmentId: string;
+  state: string | null;
+  title: string;
+  summary: string | null;
+  riskLevel: string | null;
+  category: string | null;
 }) {
   if (!state) return;
 
   // Find region whose states[] contains this state
-  const [region] = await db`
+  const [region] = (await db`
     SELECT id FROM adv_regions
     WHERE ${state} = ANY(states)
     LIMIT 1
-  ` as { id: string }[];
+  `) as { id: string }[];
 
   if (!region) return;
 
   // Find users in this org assigned to this region (or with no preference = gets all)
-  const users = await db`
+  const users = (await db`
     SELECT user_id FROM adv_user_prefs
     WHERE org_id   = ${orgId}
       AND region_id = ${region.id}
-  ` as unknown as { user_id: string }[];
+  `) as unknown as { user_id: string }[];
 
   if (users.length === 0) return;
 
@@ -362,13 +419,13 @@ async function createNotificationsForDisruption({
 
   for (const { user_id } of users) {
     // Dedup: skip if same user already has this notification in last 20h
-    const [existing] = await db`
+    const [existing] = (await db`
       SELECT 1 FROM adv_notifications
       WHERE user_id = ${user_id}
         AND lower(left(title, 60)) = ${titleKey}
         AND created_at > now() - interval '20 hours'
       LIMIT 1
-    ` as unknown as unknown[];
+    `) as unknown as unknown[];
 
     if (existing) continue;
 
