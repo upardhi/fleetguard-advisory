@@ -76,14 +76,6 @@ interface CityRow {
 }
 
 interface TeamMember { id: string; full_name: string; email: string; role: string; city_name: string | null }
-interface RegionDetail {
-  region: { id: string; label: string; color: string; states: string[] };
-  stats: { disruptions: number; critical: number; high: number; statesHit: number; worstRisk: string; corridors: number; cities: number; teamMembers: number; lastIntelAt: string | null };
-  stateGroups: StateGroup[];
-  corridors: CorridorRow[];
-  cities: CityRow[];
-  teamMembers: TeamMember[];
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function fmtDate(iso: string | null): string {
@@ -720,7 +712,7 @@ function TeamTab({ teamMembers, pal }: { teamMembers: TeamMember[]; pal: typeof 
       <div className="flex items-center justify-between bg-white rounded-2xl border border-slate-200 shadow-sm px-6 py-5">
         <div>
           <p className="text-sm font-semibold text-slate-700">No team assigned to this region yet</p>
-          <p className="text-xs text-slate-400 mt-0.5">Assign members from the Team page — they'll receive alerts for this region.</p>
+          <p className="text-xs text-slate-400 mt-0.5">Assign members from the Team page — they&apos;ll receive alerts for this region.</p>
         </div>
         <Link href="/advisory/team" className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-brand-700 text-white rounded-xl hover:bg-brand-800 transition shrink-0">
           Manage Team <ArrowRight size={13} />
@@ -776,6 +768,252 @@ function TeamTab({ teamMembers, pal }: { teamMembers: TeamMember[]; pal: typeof 
   );
 }
 
+interface WarehouseRow {
+  id: string;
+  name: string;
+  city_id: string;
+  city_name: string;
+  city_state: string | null;
+  citiesCount: number;
+  disruptionsCount: number;
+  highestRisk: string;
+  disruptions: Array<{
+    id: string;
+    title: string;
+    summary: string;
+    riskLevel: RiskLevel;
+    etaImpactHours: number;
+    category: DisruptionCategory;
+    cityName: string;
+    lastCheckedAt: string | null;
+  }>;
+}
+interface RegionDetail {
+  region: { id: string; label: string; color: string; states: string[] };
+  stats: {
+    disruptions: number;
+    warehouses: number;
+    warehousesWithDisruptions: number;
+    cities: number;
+    worstRisk: string;
+    corridors: number;
+    teamMembers: number;
+    // backward compat fields still in the API response:
+    critical: number;
+    high: number;
+    statesHit: number;
+    lastIntelAt: string | null;
+  };
+  warehouses: WarehouseRow[];
+  corridors: CorridorRow[];
+  teamMembers: TeamMember[];
+  stateGroups: StateGroup[];   // always [], kept for compat
+  cities: CityRow[];           // always [], kept for compat
+}
+
+// Updated CitiesTab to be WarehousesTab
+function WarehousesTab({
+  warehouses, corridors, teamMembers, pal, regionId,
+}: {
+  warehouses: WarehouseRow[];
+  corridors: CorridorRow[];
+  teamMembers: TeamMember[];
+  pal: typeof PAL[string];
+  regionId: string;
+}) {
+  const [search, setSearch] = useState("");
+  const [riskFilter, setFilter] = useState<"all" | "alerts" | "clear">("all");
+
+  const filtered = useMemo(() => {
+    let list = warehouses;
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter((warehouse) =>
+        warehouse.name.toLowerCase().includes(q) ||
+        warehouse.city_state?.toLowerCase().includes(q) ||
+        warehouse.disruptions.some((d) => d.title.toLowerCase().includes(q))
+      );
+    }
+    if (riskFilter === "alerts") list = list.filter((w) => w.disruptionsCount > 0);
+    if (riskFilter === "clear") list = list.filter((w) => w.disruptionsCount === 0);
+    return [...list].sort((a, b) => {
+      const aCritical = a.disruptions.some((d) => d.riskLevel === "critical") ? 1 : 0;
+      const bCritical = b.disruptions.some((d) => d.riskLevel === "critical") ? 1 : 0;
+      if (aCritical !== bCritical) return bCritical - aCritical;
+      return b.disruptionsCount - a.disruptionsCount;
+    });
+  }, [warehouses, search, riskFilter]);
+
+  const alertCount = warehouses.filter((w) => w.disruptionsCount > 0).length;
+  const totalDisruptions = warehouses.reduce((sum, w) => sum + w.disruptionsCount, 0);
+  const warehousesWithAlerts = warehouses.filter((w) => w.disruptionsCount > 0);
+  const criticalWarehouses = warehousesWithAlerts.filter((w) =>
+    w.disruptions.some((d) => d.riskLevel === "critical")
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Regional summary strip */}
+      <div className={`rounded-2xl border ${pal.border} ${pal.bg} px-5 py-4`}>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <p className={`text-[11px] font-bold uppercase tracking-widest ${pal.text} mb-1`}>Region Summary</p>
+            {totalDisruptions === 0 ? (
+              <p className="text-sm font-semibold text-emerald-700 flex items-center gap-1.5">
+                <ShieldCheck size={14} /> All {warehouses.length} warehouses clear — no active disruptions
+              </p>
+            ) : (
+              <p className="text-sm font-semibold text-slate-800">
+                {warehousesWithAlerts.length} of {warehouses.length} warehouses affected by disruptions
+              </p>
+            )}
+            {criticalWarehouses.length > 0 && (
+              <p className="text-[12px] text-red-700 font-semibold mt-1 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block" />
+                Critical holds required at: {criticalWarehouses.map((w) => w.name).join(", ")}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-4 shrink-0 flex-wrap">
+            {totalDisruptions > 0 && (
+              <div className="text-center">
+                <div className="text-xl font-bold text-slate-800 num">{totalDisruptions}</div>
+                <div className="text-[9px] text-slate-500 uppercase tracking-wider">Active Alerts</div>
+              </div>
+            )}
+            <div className="text-center">
+              <div className={`text-xl font-bold num ${pal.text}`}>{warehousesWithAlerts.length}</div>
+              <div className="text-[9px] text-slate-500 uppercase tracking-wider">Warehouses Hit</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xl font-bold text-emerald-600 num">{warehouses.length - warehousesWithAlerts.length}</div>
+              <div className="text-[9px] text-slate-500 uppercase tracking-wider">Warehouses Clear</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Top alerts across region */}
+        {totalDisruptions > 0 && (
+          <div className="mt-3 pt-3 border-t border-white/40 space-y-1.5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Top Alerts by Warehouse</p>
+            {warehouses
+              .filter((w) => w.disruptionsCount > 0)
+              .sort((a, b) => b.disruptionsCount - a.disruptionsCount)
+              .slice(0, 4)
+              .map((warehouse) => {
+                const worst = warehouse.disruptions.find((d) => d.riskLevel === "critical") ?? warehouse.disruptions[0];
+                return (
+                  <div key={warehouse.id} className="flex items-start gap-2 bg-white/60 rounded-xl px-3 py-2">
+                    <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${worst?.riskLevel === "critical" ? "bg-red-500" : "bg-orange-400"}`} />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[12px] font-semibold text-slate-800">{warehouse.name}</span>
+                      <span className="text-[10px] text-slate-400 ml-2">{warehouse.city_state}</span>
+                      <p className="text-[11px] text-slate-600 truncate mt-0.5">{worst?.title}</p>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-1.5">
+                      {warehouse.disruptionsCount > 1 && <span className="text-[10px] text-slate-400">+{warehouse.disruptionsCount - 1} more</span>}
+                      <RiskBadge level={worst?.riskLevel as RiskLevel || "safe"} size="xs" pulse={worst?.riskLevel === "critical"} />
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </div>
+
+      {/* Filter bar */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 max-w-sm">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search warehouses…" className="w-full pl-8 pr-3 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-300" />
+        </div>
+        {(["all", "alerts", "clear"] as const).map((f) => (
+          <button key={f} onClick={() => setFilter(f)} className={`text-[12px] px-3 py-1.5 rounded-full border font-semibold transition ${riskFilter === f ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"}`}>
+            {f === "all" ? `All (${warehouses.length})` : f === "alerts" ? `⚠ Alerts (${alertCount})` : `✓ Clear (${warehouses.length - alertCount})`}
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0
+        ? <SectionEmpty icon={Building2} title="No matching warehouses" sub="Try a different filter or search term." />
+        : filtered.map((warehouse) => (
+          <WarehouseCard key={warehouse.id} warehouse={warehouse} pal={pal} />
+        ))
+      }
+    </div>
+  );
+}
+
+// New WarehouseCard component
+function WarehouseCard({ warehouse, pal }: { warehouse: WarehouseRow; pal: typeof PAL[string] }) {
+  const [expanded, setExpanded] = useState(warehouse.disruptionsCount > 0);
+  const critical = warehouse.disruptions.some((d) => d.riskLevel === "critical");
+  const high = warehouse.disruptions.some((d) => d.riskLevel === "high") && !critical;
+
+  return (
+    <div className={`rounded-2xl border shadow-sm overflow-hidden ${critical ? "border-red-200" : high ? "border-orange-200" : "border-slate-200"}`}>
+      {/* Warehouse header */}
+      <button type="button" onClick={() => setExpanded((v) => !v)} className="w-full flex items-center gap-3 px-5 py-4 bg-white hover:bg-slate-50/60 text-left transition group">
+        <div className={`w-1 self-stretch rounded-full shrink-0 ${critical ? "bg-red-500" : high ? "bg-orange-400" : "bg-emerald-400"}`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[15px] font-bold text-slate-800">{warehouse.name}</span>
+            <span className="text-[11px] text-slate-400">{warehouse.city_state}</span>
+          </div>
+          <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+            {warehouse.disruptionsCount > 0 ? (
+              <>
+                {critical && <span className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><span className="w-1.5 h-1.5 rounded-full bg-red-500" />Critical</span>}
+                {high && <span className="flex items-center gap-1 text-[11px] font-semibold text-orange-600"><span className="w-1.5 h-1.5 rounded-full bg-orange-400" />High</span>}
+                <span className="text-[11px] text-slate-500">{warehouse.disruptionsCount} disruption{warehouse.disruptionsCount !== 1 ? "s" : ""}</span>
+              </>
+            ) : (
+              <span className="flex items-center gap-1 text-[11px] text-emerald-600 font-semibold"><ShieldCheck size={11} /> Clear</span>
+            )}
+            <span className="text-[10px] text-slate-400">{warehouse.citiesCount} cit{warehouse.citiesCount !== 1 ? "ies" : "y"}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {warehouse.disruptionsCount > 0 && <RiskBadge level={(critical ? "critical" : high ? "high" : "medium") as RiskLevel} size="xs" pulse={critical} />}
+          <ChevronRight size={14} className={`text-slate-300 group-hover:text-slate-500 transition-all ${expanded ? "rotate-90" : ""}`} />
+        </div>
+      </button>
+
+      {/* Expanded body */}
+      {expanded && (
+        <div className="border-t border-slate-100 bg-slate-50/50 divide-y divide-slate-100">
+          {warehouse.disruptions.length > 0 && (
+            <div className="px-5 py-4">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
+                <AlertTriangle size={11} className="text-orange-500" /> Active Alerts ({warehouse.disruptions.length})
+              </p>
+              <div className="space-y-2">
+                {warehouse.disruptions.map((d) => {
+                  const segDisruption: SegmentDisruption = {
+                    id: d.id,
+                    segmentName: d.cityName,
+                    title: d.title,
+                    summary: d.summary,
+                    riskLevel: d.riskLevel,
+                    etaImpactHours: d.etaImpactHours,
+                    category: d.category,
+                    routeId: "",
+                    routeName: "",
+                    lastCheckedAt: d.lastCheckedAt,
+                    firstSeenAt: null,
+                    sources: [],
+                  };
+                  return <DisruptionItem key={d.id} d={segDisruption} showRoute={false} />;
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 type TabId = "cities" | "corridors" | "disruptions" | "events" | "advisories" | "team";
 
@@ -809,11 +1047,10 @@ export default function RegionDetailPage({ params }: { params: Promise<{ regionI
     </div>
   );
 
-  const { region, stats, stateGroups, corridors, cities, teamMembers } = data;
-  const citiesAffected = stateGroups.length;
+  const { region, stats, warehouses, corridors, teamMembers } = data;
 
   const TABS: { id: TabId; label: string; icon: React.ElementType; count?: number }[] = [
-    { id: "cities", label: "Cities & Alerts", icon: Building2, count: cities.length },
+    { id: "cities", label: "Warehouses", icon: Building2, count: stats.warehouses },
     { id: "corridors", label: "Corridors", icon: Route, count: stats.corridors },
     { id: "disruptions", label: "Disruptions", icon: AlertTriangle, count: stats.disruptions },
     { id: "events", label: "Fleet Events", icon: Calendar },
@@ -825,7 +1062,7 @@ export default function RegionDetailPage({ params }: { params: Promise<{ regionI
     <div className="flex flex-col flex-1 overflow-hidden">
       <TopBar
         title={`${region.label} Region`}
-        subtitle={`${stats.disruptions} alert${stats.disruptions !== 1 ? "s" : ""} · ${citiesAffected} cit${citiesAffected !== 1 ? "ies" : "y"} affected · ${stats.corridors} corridors`}
+        subtitle={`${stats.disruptions} alert${stats.disruptions !== 1 ? "s" : ""} · ${stats.warehousesWithDisruptions}/${stats.warehouses} warehouses affected · ${stats.corridors} corridors`}
       />
 
       <div className="flex-1 overflow-auto">
@@ -864,10 +1101,10 @@ export default function RegionDetailPage({ params }: { params: Promise<{ regionI
               {/* KPI row */}
               <div className="flex items-end gap-6 mt-5 flex-wrap">
                 {[
-                  { label: "Critical", value: stats.critical, cls: "text-red-200", show: stats.critical > 0 },
-                  { label: "High", value: stats.high, cls: "text-orange-200", show: stats.high > 0 },
                   { label: "Disruptions", value: stats.disruptions, cls: "text-white", show: true },
-                  { label: "Cities hit", value: citiesAffected, cls: "text-white/80", show: true },
+                  { label: "Warehouses", value: stats.warehouses, cls: "text-white/80", show: true },
+                  { label: "Warehouses Hit", value: stats.warehousesWithDisruptions, cls: "text-orange-200", show: stats.warehousesWithDisruptions > 0 },
+                  { label: "Cities", value: stats.cities, cls: "text-white/60", show: true },
                   { label: "Corridors", value: stats.corridors, cls: "text-white/60", show: true },
                   { label: "Team", value: stats.teamMembers, cls: "text-white/50", show: true },
                 ].map(({ label, value, cls, show }) => show && (
@@ -876,6 +1113,7 @@ export default function RegionDetailPage({ params }: { params: Promise<{ regionI
                     <div className="text-[10px] text-white/40 uppercase tracking-wider">{label}</div>
                   </div>
                 ))}
+
                 <div className="ml-auto text-right">
                   <p className="text-[10px] text-white/40 uppercase tracking-wider">Last Intel</p>
                   <p className="text-sm text-white/80 font-semibold">{fmtDate(stats.lastIntelAt)}</p>
@@ -903,7 +1141,7 @@ export default function RegionDetailPage({ params }: { params: Promise<{ regionI
 
           {/* ── Tab content ───────────────────────────────────────────────── */}
           {activeTab === "cities" && (
-            <CitiesTab cities={cities} stateGroups={stateGroups} corridors={corridors} teamMembers={teamMembers} pal={pal} regionId={regionId} />
+            <WarehousesTab warehouses={data.warehouses} corridors={corridors} teamMembers={teamMembers} pal={pal} regionId={regionId} />
           )}
           {activeTab === "corridors" && (
             <CorridorsTab corridors={corridors} regionId={regionId} />
